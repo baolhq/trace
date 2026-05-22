@@ -1,7 +1,7 @@
 use std::time::SystemTime;
 
 use tauri::State;
-use tracing::info;
+use tracing::{info, warn};
 
 use trace_core::{hash::hash_content, id::NodeId};
 use trace_store::vault::writer::VaultWriter;
@@ -19,9 +19,7 @@ pub struct NodeInfo {
 pub fn list_nodes(state: State<'_, AppState>) -> Result<Vec<NodeInfo>, String> {
     let conn = state.db.conn();
     let mut stmt = conn
-        .prepare(
-            "SELECT id, title, created_at FROM nodes ORDER BY modified_at DESC",
-        )
+        .prepare("SELECT id, title, created_at FROM nodes ORDER BY modified_at DESC")
         .map_err(|e| e.to_string())?;
 
     let nodes = stmt
@@ -41,14 +39,39 @@ pub fn list_nodes(state: State<'_, AppState>) -> Result<Vec<NodeInfo>, String> {
 
 #[tauri::command]
 pub fn create_node(title: String, state: State<'_, AppState>) -> Result<String, String> {
+    let title = title.trim();
+
+    if title.is_empty() {
+        warn!("cannot create node: title is empty");
+        return Err("title is empty".to_string());
+    }
+
+    const INVALID_CHARS: &[char] = &['\\', '/', ':', '*', '?', '"', '<', '>', '|', '\0'];
+    if title
+        .chars()
+        .any(|c| INVALID_CHARS.contains(&c) || c.is_control())
+    {
+        warn!("cannot create node: title contains invalid filename characters: {title:?}");
+        return Err(format!(
+            "title contains invalid filename characters: {title:?}"
+        ));
+    }
+
+    let rel_path = format!("{title}.md");
+    if state.vault_path.join(&rel_path).exists() {
+        warn!("cannot create node: file already exists: {rel_path}");
+        return Err(format!("a node with that title already exists: {title:?}"));
+    }
+
     let id = NodeId::generate();
-    let rel_path = format!("{}.md", id);
-    let content = format!("# {}\n", title.trim());
+    let content = format!("# {title}\n");
     let bytes = content.as_bytes();
     let hash = hash_content(bytes);
 
     let writer = VaultWriter::new(&state.vault_path);
-    writer.write_node(&rel_path, &content).map_err(|e| e.to_string())?;
+    writer
+        .write_node(&rel_path, &content)
+        .map_err(|e| e.to_string())?;
 
     let now = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
@@ -60,19 +83,12 @@ pub fn create_node(title: String, state: State<'_, AppState>) -> Result<String, 
         conn.execute(
             "INSERT INTO nodes(id, path, title, created_at, modified_at, content_hash, byte_size)
              VALUES(?1, ?2, ?3, ?4, ?4, ?5, ?6)",
-            rusqlite::params![
-                id.as_str(),
-                rel_path,
-                title.trim(),
-                now,
-                hash,
-                bytes.len() as i64
-            ],
+            rusqlite::params![id.as_str(), rel_path, title, now, hash, bytes.len() as i64],
         )
         .map_err(|e| e.to_string())?;
     }
 
-    info!("created node: {} ({})", title.trim(), id);
+    info!("created node: {title:?} ({id})");
     Ok(id.to_string())
 }
 

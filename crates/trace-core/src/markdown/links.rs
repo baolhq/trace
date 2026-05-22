@@ -10,7 +10,7 @@ static LINK_RE: OnceLock<Regex> = OnceLock::new();
 fn link_re() -> &'static Regex {
     LINK_RE.get_or_init(|| {
         // Matches optional leading '!' then [[...]] with no nested brackets or newlines.
-        Regex::new(r"(!?)\[\[([^\[\]\n]+?)\]\]").expect("invalid link regex")
+        Regex::new(r"(!?)\[\[([^\[\]\n]+?)]]").expect("invalid link regex")
     })
 }
 
@@ -42,7 +42,12 @@ pub fn extract_links(from_id: &str, content: &str) -> Vec<Link> {
                 format!("[[{inner}]]")
             };
 
-            Link { from_id: from.clone(), to_id, target_raw, link_type }
+            Link {
+                from_id: from.clone(),
+                to_id,
+                target_raw,
+                link_type,
+            }
         })
         .collect()
 }

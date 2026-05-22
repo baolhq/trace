@@ -17,7 +17,13 @@ impl Database {
         debug!("db: opening {:?}", path);
         let conn = rusqlite::Connection::open(path)?;
         Self::apply_pragmas(&conn)?;
-        Ok(Self { conn: Mutex::new(conn) })
+        Ok(Self {
+            conn: Mutex::new(conn),
+        })
+    }
+
+    pub fn conn(&self) -> std::sync::MutexGuard<'_, rusqlite::Connection> {
+        self.conn.lock().expect("db mutex poisoned")
     }
 
     fn apply_pragmas(conn: &rusqlite::Connection) -> Result<(), rusqlite::Error> {
@@ -28,7 +34,13 @@ impl Database {
         Ok(())
     }
 
-    pub fn conn(&self) -> std::sync::MutexGuard<'_, rusqlite::Connection> {
-        self.conn.lock().expect("db mutex poisoned")
+    pub fn get_content_hash(&self, path: &str) -> Option<String> {
+        self.conn()
+            .query_row(
+                "SELECT content_hash FROM nodes WHERE path=?1",
+                rusqlite::params![path],
+                |row| row.get(0),
+            )
+            .ok()
     }
 }
