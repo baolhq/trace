@@ -15,3 +15,8 @@ ui/build
 !.env.example
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# IDE settings
+.idea
+.vscode
+.zed

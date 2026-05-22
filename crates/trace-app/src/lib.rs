@@ -23,10 +23,16 @@ pub fn run() {
             std::fs::create_dir_all(&vault_path)?;
 
             let state = startup::init(vault_path, db_path);
+            state.mark_backend_ready();
             app.manage(state);
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![])
+        .invoke_handler(tauri::generate_handler![
+            commands::nodes::list_nodes,
+            commands::nodes::create_node,
+            commands::nodes::delete_node,
+            commands::window::frontend_ready,
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

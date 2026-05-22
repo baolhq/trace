@@ -3,7 +3,7 @@ use std::{path::PathBuf, time::Duration};
 use notify::RecursiveMode;
 use notify_debouncer_mini::{new_debouncer, DebounceEventResult};
 use tokio::sync::broadcast;
-use tracing::{debug, info, warn};
+use tracing::{info, warn};
 
 use trace_services::events::CoreEvent;
 

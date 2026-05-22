@@ -1,7 +1,7 @@
 use std::{path::PathBuf, sync::Arc, time::SystemTime};
 
 use tokio::sync::mpsc;
-use tracing::{debug, info, warn};
+use tracing::{info, warn};
 use walkdir::WalkDir;
 
 use trace_core::hash::hash_content;
