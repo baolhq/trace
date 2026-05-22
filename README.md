@@ -41,7 +41,7 @@ Trace stands on the shoulders of great open-source works.
 
 - [Tauri](https://tauri.app): lightweight native shell
 - [Svelte](https://svelte.dev): compiled, minimal UI framework
-- [ProseMirror](https://prosemirror.net): the editor at the core
+- [TipTap](https://tiptap.dev): the editor at the core
 - [Tantivy](https://github.com/quickwit-oss/tantivy): full-text search engine in Rust
 - [SQLite](https://sqlite.org): the quiet backbone of a million apps
 

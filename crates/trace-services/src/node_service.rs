@@ -98,7 +98,7 @@ impl NodeService {
     }
 
     pub fn read_body(&self, id: &str) -> Result<String, ServiceError> {
-        // TODO(phase-3): add parsed-body cache (id → PM doc JSON) here.
+        // TODO(phase-3): add parsed-body cache (id → TipTap doc JSON) here.
         let meta = self.get_meta(id)?;
         Ok(self.reader().read_node(&meta.path)?)
     }
