@@ -6,4 +6,4 @@ edition = "2021"
 [dependencies]
 trace-core = { path = "../trace-core" }
 trace-store = { path = "../trace-store" }
-serde = { version = "1", features = ["derive"] }
+tracing = { workspace = true }

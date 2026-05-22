@@ -1,3 +1,4 @@
+pub mod error;
 pub mod events;
 pub mod folder_service;
 pub mod link_service;

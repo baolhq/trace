@@ -1,10 +1,7 @@
-use std::time::SystemTime;
-
 use tauri::State;
 use tracing::{info, warn};
 
-use trace_core::{hash::hash_content, id::NodeId};
-use trace_store::vault::writer::VaultWriter;
+use trace_core::model::Node;
 
 use crate::state::AppState;
 
@@ -15,11 +12,17 @@ pub struct NodeInfo {
     pub created_at: i64,
 }
 
+#[derive(serde::Serialize)]
+pub struct OpenNodeResponse {
+    pub meta: Node,
+    pub body: String,
+}
+
 #[tauri::command]
 pub fn list_nodes(state: State<'_, AppState>) -> Result<Vec<NodeInfo>, String> {
     let conn = state.db.conn();
     let mut stmt = conn
-        .prepare("SELECT id, title, created_at FROM nodes ORDER BY modified_at DESC")
+        .prepare("SELECT id, title, created_at FROM nodes ORDER BY modified_at DESC, title")
         .map_err(|e| e.to_string())?;
 
     let nodes = stmt
@@ -38,82 +41,30 @@ pub fn list_nodes(state: State<'_, AppState>) -> Result<Vec<NodeInfo>, String> {
 }
 
 #[tauri::command]
+pub fn open_node(id: String, state: State<'_, AppState>) -> Result<OpenNodeResponse, String> {
+    let meta = state.node_service.get_meta(&id).map_err(|e| e.to_string())?;
+    let body = state.node_service.read_body(&id).map_err(|e| e.to_string())?;
+    if let Err(e) = state.node_service.record_recent(&id) {
+        warn!("record_recent failed for {id}: {e}");
+    }
+    Ok(OpenNodeResponse { meta, body })
+}
+
+#[tauri::command]
+pub fn save_node(id: String, body: String, state: State<'_, AppState>) -> Result<(), String> {
+    state.node_service.save(&id, &body).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub fn create_node(title: String, state: State<'_, AppState>) -> Result<String, String> {
-    let title = title.trim();
-
-    if title.is_empty() {
-        warn!("cannot create node: title is empty");
-        return Err("title is empty".to_string());
-    }
-
-    const INVALID_CHARS: &[char] = &['\\', '/', ':', '*', '?', '"', '<', '>', '|', '\0'];
-    if title
-        .chars()
-        .any(|c| INVALID_CHARS.contains(&c) || c.is_control())
-    {
-        warn!("cannot create node: title contains invalid filename characters: {title:?}");
-        return Err(format!(
-            "title contains invalid filename characters: {title:?}"
-        ));
-    }
-
-    let rel_path = format!("{title}.md");
-    if state.vault_path.join(&rel_path).exists() {
-        warn!("cannot create node: file already exists: {rel_path}");
-        return Err(format!("a node with that title already exists: {title:?}"));
-    }
-
-    let id = NodeId::generate();
-    let content = format!("# {title}\n");
-    let bytes = content.as_bytes();
-    let hash = hash_content(bytes);
-
-    let writer = VaultWriter::new(&state.vault_path);
-    writer
-        .write_node(&rel_path, &content)
-        .map_err(|e| e.to_string())?;
-
-    let now = SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis() as i64;
-
-    {
-        let conn = state.db.conn();
-        conn.execute(
-            "INSERT INTO nodes(id, path, title, created_at, modified_at, content_hash, byte_size)
-             VALUES(?1, ?2, ?3, ?4, ?4, ?5, ?6)",
-            rusqlite::params![id.as_str(), rel_path, title, now, hash, bytes.len() as i64],
-        )
-        .map_err(|e| e.to_string())?;
-    }
-
-    info!("created node: {title:?} ({id})");
+    let id = state.node_service.create(&title).map_err(|e| e.to_string())?;
+    info!("command: created node {title:?} ({id})");
     Ok(id.to_string())
 }
 
 #[tauri::command]
 pub fn delete_node(id: String, state: State<'_, AppState>) -> Result<(), String> {
-    let rel_path: Option<String> = {
-        let conn = state.db.conn();
-        conn.query_row(
-            "SELECT path FROM nodes WHERE id = ?1",
-            rusqlite::params![id],
-            |row| row.get(0),
-        )
-        .ok()
-    };
-
-    if let Some(path) = rel_path {
-        // File may already be gone (deleted externally) — that's fine.
-        let _ = VaultWriter::new(&state.vault_path).delete_node(&path);
-
-        let conn = state.db.conn();
-        conn.execute("DELETE FROM nodes WHERE id = ?1", rusqlite::params![id])
-            .map_err(|e| e.to_string())?;
-
-        info!("deleted node: {id}");
-    }
-
+    state.node_service.delete(&id).map_err(|e| e.to_string())?;
+    info!("command: deleted node {id}");
     Ok(())
 }

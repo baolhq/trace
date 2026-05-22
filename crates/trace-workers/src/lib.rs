@@ -3,6 +3,7 @@ pub mod git;
 pub mod indexer;
 pub mod link_extractor;
 pub mod scanner;
+mod util;
 pub mod watcher;
 
 pub use file_sync::FileSync;

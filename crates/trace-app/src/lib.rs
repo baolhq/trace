@@ -2,7 +2,7 @@ mod commands;
 mod startup;
 mod state;
 
-use crate::commands::nodes::{create_node, delete_node, list_nodes};
+use crate::commands::nodes::{create_node, delete_node, list_nodes, open_node, save_node};
 use crate::commands::window::frontend_ready;
 use tauri::Manager;
 
@@ -31,6 +31,8 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             list_nodes,
+            open_node,
+            save_node,
             create_node,
             delete_node,
             frontend_ready,

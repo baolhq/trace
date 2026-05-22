@@ -2,7 +2,7 @@ use std::{path::PathBuf, sync::Arc};
 
 use tauri::{AppHandle, Emitter};
 use tokio::sync::{broadcast, mpsc};
-use trace_services::events::CoreEvent;
+use trace_services::{events::CoreEvent, node_service::NodeService};
 use trace_store::db::{migrations, Database};
 use trace_workers::{FileSync, Scanner, Watcher};
 use tracing::{info, instrument};
@@ -21,11 +21,13 @@ pub fn init(vault_path: PathBuf, db_path: PathBuf, app_handle: AppHandle) -> App
 
     let (event_tx, event_rx) = broadcast::channel::<CoreEvent>(512);
 
-    // scan_tx is consumed by the Scanner; the receiver end lives here until
-    // the Indexer worker is wired up in Phase 5.
+    // Subscribe before spawning workers so no events (including ScanComplete)
+    // are missed due to the broadcast channel's drop-if-no-subscriber behaviour.
+    let mut ui_rx = event_tx.subscribe();
+
     let (scan_tx, _scan_rx) = mpsc::channel::<String>(256);
 
-    let scanner = Scanner::new(vault_path.clone(), Arc::clone(&db), scan_tx);
+    let scanner = Scanner::new(vault_path.clone(), Arc::clone(&db), scan_tx, event_tx.clone());
     tauri::async_runtime::spawn(async move { scanner.run().await });
 
     let watcher = Watcher::new(vault_path.clone(), event_tx.clone());
@@ -39,12 +41,13 @@ pub fn init(vault_path: PathBuf, db_path: PathBuf, app_handle: AppHandle) -> App
     );
     tauri::async_runtime::spawn(async move { file_sync.run().await });
 
-    // Forward NodesChanged events to the Tauri frontend so the UI can refresh.
-    let mut ui_rx = event_tx.subscribe();
+    // Forward node-relevant events to the frontend so the UI can refresh its list.
+    // ScanComplete triggers a refresh after the initial vault scan finishes.
+    // NodesChanged covers external file-system changes detected by FileSync.
     tauri::async_runtime::spawn(async move {
         loop {
             match ui_rx.recv().await {
-                Ok(CoreEvent::NodesChanged) => {
+                Ok(CoreEvent::NodesChanged | CoreEvent::ScanComplete) => {
                     let _ = app_handle.emit("nodes_changed", ());
                 }
                 Ok(_) => {}
@@ -54,6 +57,8 @@ pub fn init(vault_path: PathBuf, db_path: PathBuf, app_handle: AppHandle) -> App
         }
     });
 
-    info!("startup: scanner, watcher, and file-sync spawned");
-    AppState::new(db, vault_path, event_tx)
+    let node_service = NodeService::new(Arc::clone(&db), vault_path.clone());
+    info!("startup: scanner, watcher, file-sync, and node-service ready");
+
+    AppState::new(db, vault_path, event_tx, node_service)
 }

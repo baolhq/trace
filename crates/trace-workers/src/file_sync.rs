@@ -1,13 +1,13 @@
-use std::{path::PathBuf, sync::Arc, time::SystemTime};
+use std::{path::PathBuf, sync::Arc};
 
 use tokio::sync::broadcast;
-use tracing::{info, warn};
+use tracing::{debug, warn};
 
-use trace_core::{hash::hash_content, id::NodeId};
+use trace_core::{hash::hash_content, id::NodeId, markdown::extract_title};
 use trace_services::events::CoreEvent;
 use trace_store::db::Database;
 
-use crate::scanner::extract_title;
+use crate::util::{mtime_of, now_ms};
 
 pub struct FileSync {
     vault_path: PathBuf,
@@ -23,12 +23,7 @@ impl FileSync {
         tx: broadcast::Sender<CoreEvent>,
         rx: broadcast::Receiver<CoreEvent>,
     ) -> Self {
-        Self {
-            vault_path,
-            db,
-            tx,
-            rx,
-        }
+        Self { vault_path, db, tx, rx }
     }
 
     pub async fn run(&mut self) {
@@ -77,22 +72,19 @@ impl FileSync {
 
         let stored_hash = self.db.get_content_hash(rel);
         if stored_hash.as_deref() == Some(hash.as_str()) {
-            // Same hash is no-op; suppresses events for files we just wrote ourselves.
+            // Same hash — self-write suppression; nothing to do.
             return;
         }
 
-        let now = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis() as i64;
+        let mtime_ms = abs.metadata().map(mtime_of).unwrap_or_else(|_| now_ms());
 
         if stored_hash.is_some() {
             let conn = self.db.conn();
             let _ = conn.execute(
                 "UPDATE nodes SET content_hash=?1, byte_size=?2, modified_at=?3 WHERE path=?4",
-                rusqlite::params![hash, bytes.len() as i64, now, rel],
+                rusqlite::params![hash, bytes.len() as i64, mtime_ms, rel],
             );
-            info!("file_sync: updated node: {rel}");
+            debug!("file_sync: updated node: {rel}");
             let _ = self.tx.send(CoreEvent::NodesChanged);
         } else {
             let content = std::str::from_utf8(&bytes).unwrap_or("");
@@ -102,10 +94,10 @@ impl FileSync {
             match conn.execute(
                 "INSERT OR IGNORE INTO nodes(id, path, title, created_at, modified_at, content_hash, byte_size)
                  VALUES(?1, ?2, ?3, ?4, ?4, ?5, ?6)",
-                rusqlite::params![id.as_str(), rel, title, now, hash, bytes.len() as i64],
+                rusqlite::params![id.as_str(), rel, title, mtime_ms, hash, bytes.len() as i64],
             ) {
                 Ok(n) if n > 0 => {
-                    info!("file_sync: inserted new node: {rel} ({id})");
+                    debug!("file_sync: inserted new node: {rel} ({id})");
                     let _ = self.tx.send(CoreEvent::NodesChanged);
                 }
                 Ok(_) => {}
@@ -118,7 +110,7 @@ impl FileSync {
         let conn = self.db.conn();
         match conn.execute("DELETE FROM nodes WHERE path=?1", rusqlite::params![rel]) {
             Ok(n) if n > 0 => {
-                info!("file_sync: removed deleted node: {rel}");
+                debug!("file_sync: removed deleted node: {rel}");
                 let _ = self.tx.send(CoreEvent::NodesChanged);
             }
             _ => {}
