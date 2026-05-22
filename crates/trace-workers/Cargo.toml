@@ -1,0 +1,15 @@
+[package]
+name = "trace-workers"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+trace-core = { path = "../trace-core" }
+trace-store = { path = "../trace-store" }
+trace-services = { path = "../trace-services" }
+tokio = { workspace = true }
+notify = { workspace = true }
+notify-debouncer-mini = { workspace = true }
+walkdir = { workspace = true }
+rusqlite = { workspace = true }
+tracing = { workspace = true }

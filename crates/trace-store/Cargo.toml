@@ -1,0 +1,10 @@
+[package]
+name = "trace-store"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+trace-core = { path = "../trace-core" }
+serde = { workspace = true }
+rusqlite = { workspace = true }
+tracing = { workspace = true }

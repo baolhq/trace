@@ -1,0 +1,17 @@
+{
+  "name": "trace",
+  "version": "0.1.0",
+  "description": "",
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm --filter trace-ui dev",
+    "build": "pnpm --filter trace-ui build",
+    "check": "pnpm --filter trace-ui check",
+    "tauri:dev": "cd crates/trace-app && tauri dev",
+    "tauri:build": "cd crates/trace-app && tauri build"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}

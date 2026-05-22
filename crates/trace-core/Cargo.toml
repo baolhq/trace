@@ -1,0 +1,10 @@
+[package]
+name = "trace-core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { workspace = true }
+rand = { workspace = true }
+xxhash-rust = { workspace = true }
+regex = { workspace = true }
