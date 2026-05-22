@@ -1,7 +1,7 @@
 use tauri::State;
 use tracing::{info, warn};
 
-use trace_core::model::Node;
+use trace_core::{markdown::doc::PmDoc, model::Node};
 
 use crate::state::AppState;
 
@@ -15,7 +15,7 @@ pub struct NodeInfo {
 #[derive(serde::Serialize)]
 pub struct OpenNodeResponse {
     pub meta: Node,
-    pub body: String,
+    pub doc: PmDoc,
 }
 
 #[tauri::command]
@@ -43,16 +43,16 @@ pub fn list_nodes(state: State<'_, AppState>) -> Result<Vec<NodeInfo>, String> {
 #[tauri::command]
 pub fn open_node(id: String, state: State<'_, AppState>) -> Result<OpenNodeResponse, String> {
     let meta = state.node_service.get_meta(&id).map_err(|e| e.to_string())?;
-    let body = state.node_service.read_body(&id).map_err(|e| e.to_string())?;
+    let doc = state.node_service.read_doc(&id).map_err(|e| e.to_string())?;
     if let Err(e) = state.node_service.record_recent(&id) {
         warn!("record_recent failed for {id}: {e}");
     }
-    Ok(OpenNodeResponse { meta, body })
+    Ok(OpenNodeResponse { meta, doc })
 }
 
 #[tauri::command]
-pub fn save_node(id: String, body: String, state: State<'_, AppState>) -> Result<(), String> {
-    state.node_service.save(&id, &body).map_err(|e| e.to_string())
+pub fn save_node(id: String, doc: PmDoc, state: State<'_, AppState>) -> Result<(), String> {
+    state.node_service.save_doc(&id, &doc).map_err(|e| e.to_string())
 }
 
 #[tauri::command]

@@ -6,7 +6,12 @@ use std::{
 
 use tracing::info;
 
-use trace_core::{hash::hash_content, id::NodeId, markdown::extract_title, model::Node};
+use trace_core::{
+    hash::hash_content,
+    id::NodeId,
+    markdown::{doc::PmDoc, extract_title, parse::parse, serialize::serialize},
+    model::Node,
+};
 use trace_store::{
     cache::MetadataCache,
     db::{nodes_repo::NodesRepo, Database},
@@ -98,9 +103,18 @@ impl NodeService {
     }
 
     pub fn read_body(&self, id: &str) -> Result<String, ServiceError> {
-        // TODO(phase-3): add parsed-body cache (id → TipTap doc JSON) here.
         let meta = self.get_meta(id)?;
         Ok(self.reader().read_node(&meta.path)?)
+    }
+
+    pub fn read_doc(&self, id: &str) -> Result<PmDoc, ServiceError> {
+        let body = self.read_body(id)?;
+        Ok(parse(&body))
+    }
+
+    pub fn save_doc(&self, id: &str, doc: &PmDoc) -> Result<(), ServiceError> {
+        let body = serialize(doc);
+        self.save(id, &body)
     }
 
     pub fn save(&self, id: &str, body: &str) -> Result<(), ServiceError> {
