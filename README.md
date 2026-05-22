@@ -1,7 +1,45 @@
-# Tauri + SvelteKit + TypeScript
+# Trace
 
-This template should help get you started developing with Tauri, SvelteKit and TypeScript in Vite.
+A calm knowledge app built around thoughts, not folders.
 
-## Recommended IDE Setup
+Write things down. Connect ideas. Organize later.
 
-[VS Code](https://code.visualstudio.com/) + [Svelte](https://marketplace.visualstudio.com/items?itemName=svelte.svelte-vscode) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer).
+---
+
+## Why?
+
+Folders become rigid.
+
+Pure graph systems become messy.
+
+Trace keeps notes flexible with virtual folders — organize without moving files around.
+
+One Trace can appear in multiple places at once.
+
+No duplicates.
+
+No folder maze.
+
+No broken links.
+
+---
+
+## Features
+
+- Virtual folders
+- Linked traces
+- Local-first
+- Markdown-friendly
+- Clean, distraction-free UI
+
+---
+
+## Philosophy
+
+Structure should support thinking, not control it.
+
+Write first.
+
+Organize later.
+
+Leave a trace.
