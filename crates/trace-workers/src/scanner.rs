@@ -53,7 +53,7 @@ impl Scanner {
             };
 
             if stored.as_deref() != Some(&hash) {
-                debug!("scanner: changed: {rel}");
+                info!("scanner: changed: {rel}");
                 changed += 1;
                 // Ignore send errors — receiver may not be wired yet (Phase 1).
                 let _ = self.tx.send(rel).await;

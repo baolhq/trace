@@ -36,7 +36,7 @@ impl Watcher {
                             for ev in events {
                                 let path = ev.path.to_string_lossy().into_owned();
                                 let kind = format!("{:?}", ev.kind);
-                                debug!("watcher: {path} [{kind}]");
+                                info!("watcher: changed: {path} [{kind}]");
                                 let _ = tx.send(CoreEvent::FileChanged { path, kind });
                             }
                         }
