@@ -18,7 +18,6 @@
     }
 
     let nodes: NodeMeta[] = $state([]);
-    let tags: string[] = $state([]);
     let activeId: string | null = $state(null);
     let activeDoc: PmDoc | null = $state(null);
     let activeMeta: NodeMeta | null = $state(null);
@@ -31,15 +30,6 @@
             nodes = await invoke("list_nodes");
         } catch (e) {
             error = String(e);
-        }
-    }
-
-    async function loadTags() {
-        try {
-            tags = await invoke("list_tags");
-        } catch (e) {
-            // Non-fatal: suggestions just won't show existing tags.
-            console.warn("list_tags failed:", e);
         }
     }
 
@@ -90,8 +80,6 @@
         try {
             const doc = tipTapToPmDoc(ttJson, activeDoc?.frontmatter);
             await invoke("save_node", {id: activeId, doc});
-            // Refresh tag list so autocomplete reflects newly added tags.
-            await loadTags();
         } catch (e) {
             error = String(e);
         } finally {
@@ -106,11 +94,10 @@
     let unlisten: (() => void) | undefined;
 
     onMount(async () => {
-        await Promise.all([loadNodes(), loadTags()]);
+        await loadNodes();
         await invoke("frontend_ready");
         unlisten = await listen("nodes_changed", () => {
             loadNodes();
-            loadTags();
         });
     });
 
@@ -167,10 +154,9 @@
             {/if}
             {#key activeId}
                 <Editor
+                        nodeId={activeId}
                         doc={activeDoc}
                         onSave={handleSave}
-                        {nodes}
-                        {tags}
                 />
             {/key}
         {:else}

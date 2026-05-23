@@ -1,3 +1,5 @@
+use std::ops::Range;
+
 use pulldown_cmark::{
     CodeBlockKind, Event, HeadingLevel, Options, Parser, Tag as CmTag, TagEnd,
 };
@@ -8,8 +10,22 @@ use super::doc::*;
 
 pub fn parse(input: &str) -> PmDoc {
     let (frontmatter, body) = split_frontmatter(input);
-    let content = parse_blocks(body);
+    let (content, _) = parse_blocks(body);
     PmDoc { frontmatter, content }
+}
+
+/// Like `parse`, but also returns byte spans for each top-level block.
+/// Spans are relative to `input` (not the body after frontmatter).
+/// Use `input[span]` to extract original bytes for a block.
+pub fn parse_with_spans(input: &str) -> (PmDoc, Vec<Range<usize>>) {
+    let (frontmatter, body) = split_frontmatter(input);
+    let body_offset = input.len() - body.len();
+    let (content, spans) = parse_blocks(body);
+    let adjusted: Vec<Range<usize>> = spans
+        .into_iter()
+        .map(|s| (s.start + body_offset)..(s.end + body_offset))
+        .collect();
+    (PmDoc { frontmatter, content }, adjusted)
 }
 
 // ── Frontmatter ───────────────────────────────────────────────────────────────
@@ -42,112 +58,180 @@ fn split_frontmatter(src: &str) -> (Option<String>, &str) {
 
 // ── Block parsing ─────────────────────────────────────────────────────────────
 
-fn parse_blocks(src: &str) -> Vec<Block> {
+/// Returns `(blocks, spans)` where spans are byte ranges relative to `src`.
+/// `spans[i]` covers the source bytes for `blocks[i]`, including its trailing `\n`.
+fn parse_blocks(src: &str) -> (Vec<Block>, Vec<Range<usize>>) {
     let opts = Options::ENABLE_TABLES | Options::ENABLE_STRIKETHROUGH;
-    let events: Vec<Event<'_>> = Parser::new_ext(src, opts).collect();
-    let mut ctx = Ctx { events: &events, pos: 0 };
-    ctx.collect_blocks()
+    let events: Vec<(Event<'_>, Range<usize>)> =
+        Parser::new_ext(src, opts).into_offset_iter().collect();
+    let mut ctx = Ctx { src, events: &events, pos: 0 };
+    ctx.collect_top_level_blocks()
 }
 
 struct Ctx<'a> {
-    events: &'a [Event<'a>],
+    src: &'a str,
+    events: &'a [(Event<'a>, Range<usize>)],
     pos: usize,
 }
 
 impl<'a> Ctx<'a> {
     fn peek(&self) -> Option<&Event<'a>> {
-        self.events.get(self.pos)
+        self.events.get(self.pos).map(|(e, _)| e)
     }
 
     fn next_event(&mut self) -> Option<&Event<'a>> {
-        let e = self.events.get(self.pos);
+        let e = self.events.get(self.pos).map(|(e, _)| e);
         self.pos += 1;
         e
     }
 
+    /// Byte offset where the current (not-yet-consumed) event starts.
+    fn byte_start(&self) -> usize {
+        self.events.get(self.pos).map(|(_, r)| r.start).unwrap_or(self.src.len())
+    }
+
+    /// Byte offset where the last consumed event ends, extended to include
+    /// one trailing `\n` if the very next byte in `src` is `\n`.
+    /// This captures each block's own line terminator without the blank-line gap.
+    fn last_byte_end(&self) -> usize {
+        if self.pos == 0 {
+            return 0;
+        }
+        let raw = self.events.get(self.pos - 1).map(|(_, r)| r.end).unwrap_or(0);
+        if self.src.as_bytes().get(raw) == Some(&b'\n') {
+            raw + 1
+        } else {
+            raw
+        }
+    }
+
+    // ── collect_top_level_blocks: records byte spans per block ────────────────
+
+    fn collect_top_level_blocks(&mut self) -> (Vec<Block>, Vec<Range<usize>>) {
+        let mut blocks = Vec::new();
+        let mut spans: Vec<Range<usize>> = Vec::new();
+
+        loop {
+            let start = self.byte_start();
+            match self.next_block() {
+                None => break,
+                Some(block) => {
+                    let end = self.last_byte_end();
+                    blocks.push(block);
+                    spans.push(start..end);
+                }
+            }
+        }
+
+        (blocks, spans)
+    }
+
+    // ── collect_blocks: recursive (no span tracking needed) ──────────────────
+
     fn collect_blocks(&mut self) -> Vec<Block> {
         let mut blocks = Vec::new();
+        while let Some(block) = self.next_block() {
+            blocks.push(block);
+        }
+        blocks
+    }
+
+    // ── next_block: parse exactly one block, return None at boundary ──────────
+
+    fn next_block(&mut self) -> Option<Block> {
         loop {
             match self.peek() {
-                None | Some(Event::End(_)) => break,
+                None | Some(Event::End(_)) => return None,
                 Some(Event::Start(tag)) => {
                     let tag = tag.clone();
-                    match &tag {
-                        CmTag::Heading { level, .. } => {
-                            let level = heading_level(*level);
-                            self.next_event();
-                            let content = self.collect_inlines(Some(TagEnd::Heading(
-                                match level {
-                                    1 => HeadingLevel::H1,
-                                    2 => HeadingLevel::H2,
-                                    3 => HeadingLevel::H3,
-                                    4 => HeadingLevel::H4,
-                                    5 => HeadingLevel::H5,
-                                    _ => HeadingLevel::H6,
-                                },
-                            )));
-                            blocks.push(Block::Heading(Heading { level, content }));
-                        }
-                        CmTag::Paragraph => {
-                            self.next_event();
-                            let content = self.collect_inlines(Some(TagEnd::Paragraph));
-                            if !content.is_empty() {
-                                blocks.push(Block::Paragraph(Paragraph { content }));
-                            }
-                        }
-                        CmTag::BlockQuote(_) => {
-                            self.next_event();
-                            let inner = self.collect_blocks();
-                            self.next_event(); // End(BlockQuote)
-                            blocks.push(Block::Blockquote(Blockquote { content: inner }));
-                        }
-                        CmTag::List(start_num) => {
-                            let start_num = *start_num;
-                            self.next_event();
-                            let items = self.collect_list_items();
-                            self.next_event(); // End(List)
-                            if let Some(start) = start_num {
-                                blocks.push(Block::OrderedList(OrderedList { start, items }));
-                            } else {
-                                blocks.push(Block::BulletList(BulletList { items }));
-                            }
-                        }
-                        CmTag::CodeBlock(kind) => {
-                            let language = match kind {
-                                CodeBlockKind::Fenced(lang) => {
-                                    let s = lang.trim().to_string();
-                                    if s.is_empty() { None } else { Some(s) }
-                                }
-                                CodeBlockKind::Indented => None,
-                            };
-                            self.next_event();
-                            let mut code = String::new();
-                            loop {
-                                match self.next_event() {
-                                    Some(Event::Text(t)) => code.push_str(t),
-                                    Some(Event::End(TagEnd::CodeBlock)) | None => break,
-                                    _ => {}
-                                }
-                            }
-                            if code.ends_with('\n') { code.pop(); }
-                            blocks.push(Block::CodeBlock(CodeBlock { language, code }));
-                        }
-                        CmTag::Table(_) => {
-                            self.next_event();
-                            let (head, body) = self.collect_table();
-                            blocks.push(Block::Table(Table { head, body }));
-                        }
-                        _ => { self.next_event(); }
-                    }
+                    return Some(self.parse_block(tag));
                 }
                 Some(Event::Rule) => {
                     self.next_event();
-                    blocks.push(Block::HorizontalRule);
+                    return Some(Block::HorizontalRule);
                 }
-                _ => { self.next_event(); }
+                _ => {
+                    self.next_event();
+                }
             }
         }
-        blocks
+    }
+
+    fn parse_block(&mut self, tag: CmTag<'a>) -> Block {
+        match tag {
+            CmTag::Heading { level, .. } => {
+                let level = heading_level(level);
+                self.next_event();
+                let end_tag = TagEnd::Heading(match level {
+                    1 => HeadingLevel::H1,
+                    2 => HeadingLevel::H2,
+                    3 => HeadingLevel::H3,
+                    4 => HeadingLevel::H4,
+                    5 => HeadingLevel::H5,
+                    _ => HeadingLevel::H6,
+                });
+                let content = self.collect_inlines(Some(end_tag));
+                Block::Heading(Heading { level, content })
+            }
+            CmTag::Paragraph => {
+                self.next_event();
+                let content = self.collect_inlines(Some(TagEnd::Paragraph));
+                if content.is_empty() {
+                    // Empty paragraph — skip (shouldn't normally happen, but be safe)
+                    Block::Paragraph(Paragraph { content: vec![] })
+                } else {
+                    Block::Paragraph(Paragraph { content })
+                }
+            }
+            CmTag::BlockQuote(_) => {
+                self.next_event();
+                let inner = self.collect_blocks();
+                self.next_event(); // End(BlockQuote)
+                Block::Blockquote(Blockquote { content: inner })
+            }
+            CmTag::List(start_num) => {
+                self.next_event();
+                let items = self.collect_list_items();
+                self.next_event(); // End(List)
+                if let Some(start) = start_num {
+                    Block::OrderedList(OrderedList { start, items })
+                } else {
+                    Block::BulletList(BulletList { items })
+                }
+            }
+            CmTag::CodeBlock(kind) => {
+                let language = match kind {
+                    CodeBlockKind::Fenced(lang) => {
+                        let s = lang.trim().to_string();
+                        if s.is_empty() { None } else { Some(s) }
+                    }
+                    CodeBlockKind::Indented => None,
+                };
+                self.next_event();
+                let mut code = String::new();
+                loop {
+                    match self.next_event() {
+                        Some(Event::Text(t)) => code.push_str(t),
+                        Some(Event::End(TagEnd::CodeBlock)) | None => break,
+                        _ => {}
+                    }
+                }
+                if code.ends_with('\n') {
+                    code.pop();
+                }
+                Block::CodeBlock(CodeBlock { language, code })
+            }
+            CmTag::Table(_) => {
+                self.next_event();
+                let (head, body) = self.collect_table();
+                Block::Table(Table { head, body })
+            }
+            _ => {
+                self.next_event();
+                // Unknown block type — emit empty paragraph as placeholder
+                Block::Paragraph(Paragraph { content: vec![] })
+            }
+        }
     }
 
     fn collect_list_items(&mut self) -> Vec<ListItem> {
@@ -157,8 +241,6 @@ impl<'a> Ctx<'a> {
                 Some(Event::Start(CmTag::Item)) => {
                     self.next_event(); // consume Start(Item)
 
-                    // Tight list items emit text/inlines directly (no Paragraph wrapper).
-                    // Loose list items emit Start(Paragraph) first.
                     let is_tight = matches!(
                         self.peek(),
                         Some(Event::Text(_))
@@ -174,7 +256,7 @@ impl<'a> Ctx<'a> {
                     );
 
                     let content = if is_tight {
-                        let inlines = self.collect_inlines(None); // stops at End(Item)
+                        let inlines = self.collect_inlines(None);
                         if inlines.is_empty() {
                             vec![]
                         } else {
@@ -184,14 +266,15 @@ impl<'a> Ctx<'a> {
                         self.collect_blocks()
                     };
 
-                    // consume End(Item)
                     if matches!(self.peek(), Some(Event::End(TagEnd::Item))) {
                         self.next_event();
                     }
                     items.push(ListItem { content });
                 }
                 Some(Event::End(_)) | None => break,
-                _ => { self.next_event(); }
+                _ => {
+                    self.next_event();
+                }
             }
         }
         items
@@ -220,8 +303,12 @@ impl<'a> Ctx<'a> {
                     let row = self.collect_table_row();
                     if in_head { head.push(row) } else { body.push(row) }
                 }
-                Some(Event::End(TagEnd::TableRow)) => { self.next_event(); }
-                _ => { self.next_event(); }
+                Some(Event::End(TagEnd::TableRow)) => {
+                    self.next_event();
+                }
+                _ => {
+                    self.next_event();
+                }
             }
         }
         (head, body)
@@ -240,14 +327,15 @@ impl<'a> Ctx<'a> {
                     let content = self.collect_inlines(Some(TagEnd::TableCell));
                     cells.push(TableCell { content });
                 }
-                _ => { self.next_event(); }
+                _ => {
+                    self.next_event();
+                }
             }
         }
         TableRow { cells }
     }
 
-    /// Collect inline content until `end` tag (or End(Item)/End(_) when `end` is None).
-    /// Buffers consecutive Text events so [[wiki]] spanning split events is detected.
+    /// Collect inline content until `end` tag (or End(_) when `end` is None).
     fn collect_inlines(&mut self, end: Option<TagEnd>) -> Vec<Inline> {
         let mut b = InlineBuilder::default();
         loop {
@@ -315,14 +403,16 @@ impl<'a> Ctx<'a> {
                         title: if title.is_empty() { None } else { Some(title.to_string()) },
                     }));
                 }
-                _ => { self.next_event(); }
+                _ => {
+                    self.next_event();
+                }
             }
         }
         b.finish()
     }
 }
 
-// ── InlineBuilder — buffers text before scanning for wiki links / tags ────────
+// ── InlineBuilder ─────────────────────────────────────────────────────────────
 
 #[derive(Default)]
 struct InlineBuilder {
@@ -349,7 +439,9 @@ impl InlineBuilder {
     }
 
     fn flush(&mut self) {
-        if self.buf.is_empty() { return; }
+        if self.buf.is_empty() {
+            return;
+        }
         let text = std::mem::take(&mut self.buf);
         scan_inline_text(&mut self.result, &self.marks, &text);
     }
@@ -360,18 +452,16 @@ impl InlineBuilder {
     }
 }
 
-// ── Text scanner — splits [[wiki]], #tags out of a text run ──────────────────
+// ── Text scanner ──────────────────────────────────────────────────────────────
 
 fn scan_inline_text(out: &mut Vec<Inline>, marks: &[Mark], text: &str) {
     let mut rest = text;
     while !rest.is_empty() {
-        // Prefer [[...]] over #tag (detect whichever comes first)
         let wiki_pos = rest.find("[[");
         let tag_pos = find_tag_start(rest);
 
         match (wiki_pos, tag_pos) {
             (Some(w), Some(t)) if t < w => {
-                // Tag comes first
                 emit_text(out, marks, &rest[..t]);
                 let after = &rest[t + 1..];
                 let len = tag_name_len(after);
@@ -379,23 +469,21 @@ fn scan_inline_text(out: &mut Vec<Inline>, marks: &[Mark], text: &str) {
                 rest = &after[len..];
             }
             (Some(w), _) => {
-                // Wiki link comes first (or only wiki found)
                 emit_text(out, marks, &rest[..w]);
                 let after = &rest[w + 2..];
                 if let Some(end) = after.find("]]") {
                     let inner = &after[..end];
                     let is_id_ref = inner.starts_with("node:");
-                    let target = if is_id_ref { inner[5..].to_string() } else { inner.to_string() };
+                    let target =
+                        if is_id_ref { inner[5..].to_string() } else { inner.to_string() };
                     out.push(Inline::WikiLink(WikiLink { target, is_id_ref }));
                     rest = &after[end + 2..];
                 } else {
-                    // Unmatched `[[` — treat as literal
                     emit_text(out, marks, "[[");
                     rest = after;
                 }
             }
             (None, Some(t)) => {
-                // Only a tag
                 emit_text(out, marks, &rest[..t]);
                 let after = &rest[t + 1..];
                 let len = tag_name_len(after);
@@ -428,12 +516,13 @@ fn find_tag_start(s: &str) -> Option<usize> {
 }
 
 fn tag_name_len(s: &str) -> usize {
-    s.find(|c: char| !c.is_alphanumeric() && c != '_' && c != '-')
-        .unwrap_or(s.len())
+    s.find(|c: char| !c.is_alphanumeric() && c != '_' && c != '-').unwrap_or(s.len())
 }
 
 fn emit_text(out: &mut Vec<Inline>, marks: &[Mark], text: &str) {
-    if text.is_empty() { return; }
+    if text.is_empty() {
+        return;
+    }
     if let Some(Inline::Text(prev)) = out.last_mut() {
         if prev.marks == marks {
             prev.text.push_str(text);
@@ -445,8 +534,12 @@ fn emit_text(out: &mut Vec<Inline>, marks: &[Mark], text: &str) {
 
 fn heading_level(level: HeadingLevel) -> u8 {
     match level {
-        HeadingLevel::H1 => 1, HeadingLevel::H2 => 2, HeadingLevel::H3 => 3,
-        HeadingLevel::H4 => 4, HeadingLevel::H5 => 5, HeadingLevel::H6 => 6,
+        HeadingLevel::H1 => 1,
+        HeadingLevel::H2 => 2,
+        HeadingLevel::H3 => 3,
+        HeadingLevel::H4 => 4,
+        HeadingLevel::H5 => 5,
+        HeadingLevel::H6 => 6,
     }
 }
 
@@ -478,7 +571,8 @@ mod tests {
         let Block::Paragraph(p) = &doc.content[0] else { panic!() };
         assert!(
             p.content.iter().any(|i| matches!(i, Inline::WikiLink(w) if w.target == "My Note")),
-            "wiki link not found in: {:?}", p.content
+            "wiki link not found in: {:?}",
+            p.content
         );
     }
 
@@ -518,7 +612,36 @@ mod tests {
         let doc = parse(src);
         let Block::BulletList(list) = &doc.content[0] else { panic!("{:?}", doc.content) };
         assert_eq!(list.items.len(), 2);
-        let Block::Paragraph(p) = &list.items[0].content[0] else { panic!("{:?}", list.items[0]) };
+        let Block::Paragraph(p) = &list.items[0].content[0] else {
+            panic!("{:?}", list.items[0])
+        };
         assert!(matches!(&p.content[0], Inline::Text(t) if t.text == "alpha"));
+    }
+
+    #[test]
+    fn spans_cover_blocks() {
+        let src = "# Heading\n\nParagraph.\n";
+        let (doc, spans) = parse_with_spans(src);
+        assert_eq!(doc.content.len(), 2);
+        assert_eq!(spans.len(), 2);
+        // Each span must be non-empty and within bounds
+        for span in &spans {
+            assert!(!span.is_empty());
+            assert!(span.end <= src.len());
+        }
+        // Heading span should contain "# Heading"
+        assert!(src[spans[0].clone()].contains("Heading"));
+        // Paragraph span should contain "Paragraph."
+        assert!(src[spans[1].clone()].contains("Paragraph"));
+    }
+
+    #[test]
+    fn spans_with_frontmatter() {
+        let src = "---\ntitle: T\n---\n\n# Hello\n\nWorld\n";
+        let (doc, spans) = parse_with_spans(src);
+        assert_eq!(doc.content.len(), 2);
+        assert_eq!(spans.len(), 2);
+        assert!(src[spans[0].clone()].contains("Hello"));
+        assert!(src[spans[1].clone()].contains("World"));
     }
 }

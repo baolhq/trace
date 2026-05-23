@@ -22,7 +22,14 @@ pub fn serialize(doc: &PmDoc) -> String {
     out
 }
 
-fn serialize_block(out: &mut String, block: &Block, depth: usize) {
+/// Serialize a single block to an owned String (including trailing `\n`).
+pub fn serialize_block_to_string(block: &Block) -> String {
+    let mut out = String::new();
+    serialize_block(&mut out, block, 0);
+    out
+}
+
+pub(crate) fn serialize_block(out: &mut String, block: &Block, depth: usize) {
     match block {
         Block::Heading(h) => {
             let prefix = "#".repeat(h.level as usize);

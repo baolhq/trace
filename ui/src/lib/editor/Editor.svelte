@@ -1,5 +1,6 @@
 <script lang="ts">
     import {onMount, onDestroy} from "svelte";
+    import {invoke} from "@tauri-apps/api/core";
     import {Editor} from "@tiptap/core";
     import StarterKit from "@tiptap/starter-kit";
     import {Table, TableRow, TableHeader, TableCell} from "@tiptap/extension-table";
@@ -7,20 +8,15 @@
     import {WikiLink} from "./extensions/WikiLink";
     import {Tag} from "./extensions/Tag";
     import {pmDocToTipTap, type PmDoc} from "./doc";
-
-    interface NodeSummary {
-        id: string;
-        title: string
-    }
+    import {editorLRU} from "./EditorLRU";
 
     interface Props {
+        nodeId: string;
         doc: PmDoc;
         onSave: (doc: object) => void;
-        nodes?: NodeSummary[];
-        tags?: string[];
     }
 
-    let {doc, onSave, nodes = [], tags = []}: Props = $props();
+    let {nodeId, doc, onSave}: Props = $props();
 
     let container: HTMLDivElement;
     let editor: Editor | null = null;
@@ -31,7 +27,7 @@
     // ── Suggestion state ─────────────────────────────────────────────────────────
     interface SuggItem {
         label: string;
-        id?: string
+        id?: string;
     }
 
     let sugg = $state({
@@ -44,21 +40,27 @@
         index: 0,
     });
 
-    let filteredItems = $derived((): SuggItem[] => {
-        if (!sugg.active) return [];
-        const q = sugg.query.toLowerCase();
-        if (sugg.mode === "wiki") {
-            return nodes
-                .filter((n) => n.title.toLowerCase().includes(q))
-                .slice(0, 8)
-                .map((n) => ({label: n.title, id: n.id}));
-        } else {
-            return tags
-                .filter((t) => t.toLowerCase().includes(q))
-                .slice(0, 8)
-                .map((t) => ({label: t}));
-        }
-    });
+    // FST-backed suggestions fetched from backend
+    let suggItems: SuggItem[] = $state([]);
+    let suggFetchTimer: ReturnType<typeof setTimeout> | null = null;
+
+    function fetchSuggestions(mode: "wiki" | "tag", query: string) {
+        if (suggFetchTimer) clearTimeout(suggFetchTimer);
+        suggFetchTimer = setTimeout(async () => {
+            if (!sugg.active) return;
+            if (mode === "wiki") {
+                const results = await invoke<{id: string; title: string}[]>(
+                    "suggest_nodes",
+                    {prefix: query},
+                );
+                suggItems = results.map((r) => ({label: r.title, id: r.id}));
+            } else {
+                const results = await invoke<string[]>("suggest_tags", {prefix: query});
+                suggItems = results.map((t) => ({label: t}));
+            }
+            sugg.index = 0;
+        }, 60);
+    }
 
     // ── Editor setup ─────────────────────────────────────────────────────────────
     function buildEditor(element: HTMLElement, initialDoc: PmDoc): Editor {
@@ -79,11 +81,11 @@
             ],
             content: pmDocToTipTap(initialDoc),
         });
-        ed.on('update', ({ editor: e }) => {
+        ed.on("update", ({editor: e}) => {
             scheduleSave();
             refreshSuggestion(e);
         });
-        ed.on('selectionUpdate', ({ editor: e }) => {
+        ed.on("selectionUpdate", ({editor: e}) => {
             refreshSuggestion(e);
         });
         return ed;
@@ -118,15 +120,17 @@
         const wikiMatch = textBefore.match(/\[\[([^\]]*)$/);
         if (wikiMatch) {
             const coords = ed.view.coordsAtPos(anchor.pos);
+            const query = wikiMatch[1];
             sugg = {
                 active: true,
                 mode: "wiki",
-                query: wikiMatch[1],
+                query,
                 from: anchor.pos - wikiMatch[0].length,
                 left: coords.left,
                 top: coords.bottom + 4,
                 index: 0,
             };
+            fetchSuggestions("wiki", query);
             return;
         }
 
@@ -137,15 +141,17 @@
             const prevChar = posBeforeHash > 0 ? textBefore[posBeforeHash - 1] : "";
             if (prevChar === "" || prevChar === " " || prevChar === "\t") {
                 const coords = ed.view.coordsAtPos(anchor.pos);
+                const query = tagMatch[1];
                 sugg = {
                     active: true,
                     mode: "tag",
-                    query: tagMatch[1],
+                    query,
                     from: anchor.pos - tagMatch[0].length,
                     left: coords.left,
                     top: coords.bottom + 4,
                     index: 0,
                 };
+                fetchSuggestions("tag", query);
                 return;
             }
         }
@@ -154,7 +160,10 @@
     }
 
     function closeSuggestion() {
-        if (sugg.active) sugg = {...sugg, active: false};
+        if (sugg.active) {
+            sugg = {...sugg, active: false};
+            suggItems = [];
+        }
     }
 
     function applySuggestion(item: SuggItem) {
@@ -175,12 +184,11 @@
 
     // ── Keyboard interception (capture phase fires before ProseMirror) ────────────
     function onContainerKeydown(e: KeyboardEvent) {
-        const items = filteredItems();
-        if (!sugg.active || items.length === 0) return;
+        if (!sugg.active || suggItems.length === 0) return;
         if (e.key === "ArrowDown") {
             e.preventDefault();
             e.stopPropagation();
-            sugg.index = Math.min(sugg.index + 1, items.length - 1);
+            sugg.index = Math.min(sugg.index + 1, suggItems.length - 1);
         } else if (e.key === "ArrowUp") {
             e.preventDefault();
             e.stopPropagation();
@@ -188,7 +196,7 @@
         } else if (e.key === "Enter") {
             e.preventDefault();
             e.stopPropagation();
-            applySuggestion(items[sugg.index]);
+            applySuggestion(suggItems[sugg.index]);
         } else if (e.key === "Escape") {
             e.stopPropagation();
             closeSuggestion();
@@ -198,12 +206,32 @@
     // ── Lifecycle ─────────────────────────────────────────────────────────────────
     onMount(() => {
         editor = buildEditor(container, doc);
-        // Capture phase on the container fires before the ProseMirror handler on
-        // the inner contenteditable, letting us intercept arrow/enter/escape.
+
+        // Restore cached state if available (warm LRU)
+        const cached = editorLRU.get(nodeId);
+        if (cached) {
+            editor.commands.setContent(cached.json, false);
+            try {
+                editor.commands.setTextSelection({from: cached.anchor, to: cached.head});
+            } catch {
+                // Selection may be out of bounds if content changed externally
+            }
+            container.scrollTop = cached.scrollTop;
+        }
+
         container.addEventListener("keydown", onContainerKeydown, true);
     });
 
     onDestroy(() => {
+        // Save editor state to LRU before destruction
+        if (editor && nodeId) {
+            editorLRU.put(nodeId, {
+                json: editor.getJSON(),
+                anchor: editor.state.selection.anchor,
+                head: editor.state.selection.head,
+                scrollTop: container?.scrollTop ?? 0,
+            });
+        }
         container?.removeEventListener("keydown", onContainerKeydown, true);
         flushSave();
         editor?.destroy();
@@ -216,14 +244,14 @@
 </div>
 
 <!-- Suggestion dropdown — rendered at fixed viewport coords of the cursor -->
-{#if sugg.active && filteredItems().length > 0}
+{#if sugg.active && suggItems.length > 0}
     <div
             class="suggestion-popup"
             style="left: {sugg.left}px; top: {sugg.top}px"
             role="listbox"
             aria-label={sugg.mode === "wiki" ? "Note suggestions" : "Tag suggestions"}
     >
-        {#each filteredItems() as item, i (item.label)}
+        {#each suggItems as item, i (item.label)}
             <!-- onmousedown + preventDefault keeps editor focus when clicking -->
             <button
                     class="suggestion-item"

@@ -1,50 +1,45 @@
-import type { Editor } from "@tiptap/core";
-
 const CAPACITY = 8;
 
+export interface CachedEditorState {
+    json: object;
+    anchor: number;
+    head: number;
+    scrollTop: number;
+}
+
 interface Entry {
-  id: string;
-  editor: Editor;
+    id: string;
+    state: CachedEditorState;
 }
 
 /**
- * Holds detached TipTap editor instances so switching back to a recently
- * viewed node skips re-parsing. Entries are evicted LRU when cap is reached.
+ * Module-level LRU cache for editor state (JSON content + cursor + scroll).
+ * Survives Svelte component remounts so switching back to a recent note
+ * restores cursor position and scroll without a round-trip to disk.
  */
-export class EditorLRU {
-  private entries: Entry[] = [];
+class EditorStateCache {
+    private entries: Entry[] = [];
 
-  get(id: string): Editor | null {
-    const idx = this.entries.findIndex((e) => e.id === id);
-    if (idx === -1) return null;
-    // Move to front (most recently used)
-    const [entry] = this.entries.splice(idx, 1);
-    this.entries.unshift(entry);
-    return entry.editor;
-  }
-
-  put(id: string, editor: Editor): void {
-    // Remove stale entry for same id if present
-    this.entries = this.entries.filter((e) => e.id !== id);
-
-    if (this.entries.length >= CAPACITY) {
-      const evicted = this.entries.pop()!;
-      evicted.editor.destroy();
+    get(id: string): CachedEditorState | null {
+        const idx = this.entries.findIndex((e) => e.id === id);
+        if (idx === -1) return null;
+        // Move to front (most recently used)
+        const [entry] = this.entries.splice(idx, 1);
+        this.entries.unshift(entry);
+        return entry.state;
     }
 
-    this.entries.unshift({ id, editor });
-  }
-
-  invalidate(id: string): void {
-    const idx = this.entries.findIndex((e) => e.id === id);
-    if (idx !== -1) {
-      this.entries[idx].editor.destroy();
-      this.entries.splice(idx, 1);
+    put(id: string, state: CachedEditorState): void {
+        this.entries = this.entries.filter((e) => e.id !== id);
+        if (this.entries.length >= CAPACITY) {
+            this.entries.pop(); // evict LRU
+        }
+        this.entries.unshift({ id, state });
     }
-  }
 
-  destroy(): void {
-    for (const { editor } of this.entries) editor.destroy();
-    this.entries = [];
-  }
+    invalidate(id: string): void {
+        this.entries = this.entries.filter((e) => e.id !== id);
+    }
 }
+
+export const editorLRU = new EditorStateCache();

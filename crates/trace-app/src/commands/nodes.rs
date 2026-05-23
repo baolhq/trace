@@ -57,12 +57,14 @@ pub fn save_node(id: String, doc: PmDoc, state: State<'_, AppState>) -> Result<(
     if let Err(e) = state.tag_service.sync_tags(&id, &tags) {
         warn!("sync_tags failed for {id}: {e}");
     }
+    state.suggest_service.rebuild();
     Ok(())
 }
 
 #[tauri::command]
 pub fn create_node(title: String, state: State<'_, AppState>) -> Result<String, String> {
     let id = state.node_service.create(&title).map_err(|e| e.to_string())?;
+    state.suggest_service.rebuild();
     info!("command: created node {title:?} ({id})");
     Ok(id.to_string())
 }
@@ -70,6 +72,7 @@ pub fn create_node(title: String, state: State<'_, AppState>) -> Result<String, 
 #[tauri::command]
 pub fn delete_node(id: String, state: State<'_, AppState>) -> Result<(), String> {
     state.node_service.delete(&id).map_err(|e| e.to_string())?;
+    state.suggest_service.rebuild();
     info!("command: deleted node {id}");
     Ok(())
 }

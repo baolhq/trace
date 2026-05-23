@@ -7,4 +7,6 @@ edition = "2021"
 trace-core = { path = "../trace-core" }
 trace-store = { path = "../trace-store" }
 rusqlite = { workspace = true }
+serde = { workspace = true }
 tracing = { workspace = true }
+fst = { workspace = true }

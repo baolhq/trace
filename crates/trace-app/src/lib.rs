@@ -3,6 +3,7 @@ mod startup;
 mod state;
 
 use crate::commands::nodes::{create_node, delete_node, list_nodes, open_node, save_node};
+use crate::commands::suggest::{suggest_nodes, suggest_tags};
 use crate::commands::tags::list_tags;
 use crate::commands::window::frontend_ready;
 use tauri::Manager;
@@ -37,6 +38,8 @@ pub fn run() {
             create_node,
             delete_node,
             list_tags,
+            suggest_nodes,
+            suggest_tags,
             frontend_ready,
         ])
         .run(tauri::generate_context!())

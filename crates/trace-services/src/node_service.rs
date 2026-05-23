@@ -9,7 +9,12 @@ use tracing::info;
 use trace_core::{
     hash::hash_content,
     id::NodeId,
-    markdown::{doc::PmDoc, extract_title, parse::parse, serialize::serialize},
+    markdown::{
+        doc::PmDoc,
+        extract_title,
+        parse::{parse, parse_with_spans},
+        serialize::{serialize, serialize_block_to_string},
+    },
     model::Node,
 };
 use trace_store::{
@@ -113,6 +118,47 @@ impl NodeService {
     }
 
     pub fn save_doc(&self, id: &str, doc: &PmDoc) -> Result<(), ServiceError> {
+        // Attempt block-level dirty tracking: preserve original bytes for unchanged
+        // blocks so autosaves don't reformat untouched content in Git diffs.
+        if let Ok(old_body) = self.read_body(id) {
+            let (old_doc, spans) = parse_with_spans(&old_body);
+            if old_doc.frontmatter == doc.frontmatter
+                && old_doc.content.len() == doc.content.len()
+                && !spans.is_empty()
+            {
+                let mut stitched = String::with_capacity(old_body.len());
+
+                if let Some(fm) = &doc.frontmatter {
+                    stitched.push_str("---\n");
+                    stitched.push_str(fm);
+                    stitched.push('\n');
+                    stitched.push_str("---\n\n");
+                }
+
+                let last = doc.content.len().saturating_sub(1);
+                for (i, (new_block, old_block)) in
+                    doc.content.iter().zip(old_doc.content.iter()).enumerate()
+                {
+                    if new_block == old_block {
+                        // Unchanged: copy original bytes, normalised to exactly one trailing \n
+                        let raw = &old_body[spans[i].clone()];
+                        let trimmed = raw.trim_end_matches('\n');
+                        stitched.push_str(trimmed);
+                        stitched.push('\n');
+                    } else {
+                        // Changed: canonical serialisation
+                        stitched.push_str(&serialize_block_to_string(new_block));
+                    }
+                    if i < last {
+                        stitched.push('\n'); // canonical blank-line separator
+                    }
+                }
+
+                return self.save(id, &stitched);
+            }
+        }
+
+        // Fallback: frontmatter changed, block count differs, or file unreadable
         let body = serialize(doc);
         self.save(id, &body)
     }
