@@ -5,6 +5,10 @@ description = "Trace — Tauri application entry point"
 authors = []
 edition = "2021"
 
+[[bin]]
+name = "trace"
+path = "src/main.rs"
+
 [lib]
 name = "trace_app_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
@@ -20,8 +24,7 @@ trace-workers = { path = "../trace-workers" }
 tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
 serde = { workspace = true }
-serde_json = "1"
 tokio = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
-rusqlite = { workspace = true }
+rand = { workspace = true }

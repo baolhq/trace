@@ -6,16 +6,6 @@ members = [
     "crates/trace-services",
     "crates/trace-workers",
     "crates/trace-app",
-    "crates/trace-test",
-]
-# trace-test is a dev tool: excluded from `cargo build/check --workspace`,
-# but still reachable as `cargo build -p trace-test`.
-default-members = [
-    "crates/trace-core",
-    "crates/trace-store",
-    "crates/trace-services",
-    "crates/trace-workers",
-    "crates/trace-app",
 ]
 
 [workspace.dependencies]

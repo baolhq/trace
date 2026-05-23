@@ -3,17 +3,13 @@ use std::{io::Write, path::Path};
 use rand::Rng;
 
 const WORDS: &[&str] = &[
-    "atlas", "beacon", "cipher", "delta", "epoch", "fusion", "ghost", "harbor",
-    "index", "journal", "kernel", "latent", "matrix", "nexus", "orbit", "prism",
-    "quorum", "relay", "signal", "trace", "unity", "vector", "warden", "xenon",
-    "yield", "zenith", "anchor", "bridge", "canvas", "dagger", "ember", "flare",
-    "glyph", "hinge", "infer", "juncture", "lantern", "mosaic", "notion", "opal",
+    "atlas", "beacon", "cipher", "delta", "epoch", "fusion", "ghost", "harbor", "index", "journal",
+    "kernel", "latent", "matrix", "nexus", "orbit", "prism", "quorum", "relay", "signal", "trace",
+    "unity", "vector", "warden", "xenon", "yield", "zenith", "anchor", "bridge", "canvas",
+    "dagger", "ember", "flare", "glyph", "hinge", "infer", "juncture", "lantern", "mosaic",
+    "notion", "opal",
 ];
 
-/// Generates `count` Markdown note files in `path`.
-///
-/// File names: `note-{n:06}.md` (zero-padded so they sort correctly).
-/// ~20 % of notes get 1–3 `[[wikilinks]]` to other notes in the vault.
 pub fn generate_vault(count: usize, path: &Path) -> std::io::Result<()> {
     std::fs::create_dir_all(path)?;
 
