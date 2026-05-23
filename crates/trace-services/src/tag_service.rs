@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
-use trace_store::db::Database;
+use trace_core::model::NodeInfo;
+use trace_store::db::{nodes_repo::row_to_node_info, Database};
 
 pub struct TagService {
     db: Arc<Database>,
@@ -43,6 +44,33 @@ impl TagService {
         )?;
 
         Ok(())
+    }
+
+    /// Paged list of nodes that carry `tag` (page 0-indexed).
+    pub fn nodes_by_tag(
+        &self,
+        tag: &str,
+        page: usize,
+        limit: usize,
+    ) -> Result<Vec<NodeInfo>, rusqlite::Error> {
+        let conn = self.db.conn();
+        let mut stmt = conn.prepare(
+            "SELECT n.id, n.title, n.created_at, n.is_favorite
+             FROM nodes n
+             JOIN node_tags nt ON nt.node_id = n.id
+             JOIN tags t ON t.id = nt.tag_id
+             WHERE t.name = ?1
+             ORDER BY n.modified_at DESC
+             LIMIT ?2 OFFSET ?3",
+        )?;
+        let rows = stmt
+            .query_map(
+                rusqlite::params![tag, limit as i64, (page * limit) as i64],
+                row_to_node_info,
+            )?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(rows)
     }
 
     /// All tag names that appear in at least one node, sorted alphabetically.

@@ -6,14 +6,8 @@ use trace_core::{
     model::Node,
 };
 
+use super::NodeInfo;
 use crate::state::AppState;
-
-#[derive(serde::Serialize)]
-pub struct NodeInfo {
-    pub id: String,
-    pub title: String,
-    pub created_at: i64,
-}
 
 #[derive(serde::Serialize)]
 pub struct OpenNodeResponse {
@@ -23,30 +17,10 @@ pub struct OpenNodeResponse {
 
 #[tauri::command]
 pub fn list_nodes(state: State<'_, AppState>) -> Result<Vec<NodeInfo>, String> {
-    let conn = state.db.conn();
-    // Return the 20 most-recently-touched notes. Recently-opened float to the top;
-    // unvisited notes fall back to modified_at order.
-    let mut stmt = conn
-        .prepare(
-            "SELECT n.id, n.title, n.created_at
-             FROM nodes n
-             LEFT JOIN recent_nodes rn ON n.id = rn.node_id
-             ORDER BY rn.opened_at DESC NULLS LAST, n.modified_at DESC, n.title
-             LIMIT 20",
-        )
-        .map_err(|e| e.to_string())?;
-    let nodes = stmt
-        .query_map([], |row| {
-            Ok(NodeInfo {
-                id: row.get(0)?,
-                title: row.get(1)?,
-                created_at: row.get(2)?,
-            })
-        })
-        .map_err(|e| e.to_string())?
-        .filter_map(|r| r.ok())
-        .collect();
-    Ok(nodes)
+    state
+        .node_service
+        .list_recent_info(20)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -96,4 +70,21 @@ pub fn delete_node(id: String, state: State<'_, AppState>) -> Result<(), String>
     state.suggest_service.rebuild();
     info!("command: deleted node {id}");
     Ok(())
+}
+
+#[tauri::command]
+pub fn toggle_favorite(id: String, state: State<'_, AppState>) -> Result<bool, String> {
+    state
+        .node_service
+        .toggle_favorite(&id)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn list_favorites(state: State<'_, AppState>) -> Result<Vec<NodeInfo>, String> {
+    let nodes = state
+        .node_service
+        .list_favorites()
+        .map_err(|e| e.to_string())?;
+    Ok(nodes.into_iter().map(NodeInfo::from).collect())
 }

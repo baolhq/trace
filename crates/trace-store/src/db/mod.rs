@@ -2,8 +2,8 @@ use std::{path::Path, sync::Mutex};
 
 use tracing::debug;
 
-pub mod folders_repo;
 pub mod links_repo;
+pub mod logs_repo;
 pub mod migrations;
 pub mod nodes_repo;
 

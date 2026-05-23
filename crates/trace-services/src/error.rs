@@ -24,3 +24,9 @@ impl From<std::io::Error> for ServiceError {
         Self::Io(e.to_string())
     }
 }
+
+impl From<rusqlite::Error> for ServiceError {
+    fn from(e: rusqlite::Error) -> Self {
+        Self::Db(e.to_string())
+    }
+}

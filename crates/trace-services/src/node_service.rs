@@ -15,7 +15,7 @@ use trace_core::{
         parse::{parse, parse_with_spans},
         serialize::{serialize, serialize_block_to_string},
     },
-    model::Node,
+    model::{Node, NodeInfo},
 };
 use trace_store::{
     cache::MetadataCache,
@@ -84,7 +84,9 @@ impl NodeService {
             byte_size: bytes.len() as u64,
             is_favorite: false,
         };
-        self.repo().upsert(&node).map_err(|e| ServiceError::Db(e.to_string()))?;
+        self.repo()
+            .upsert(&node)
+            .map_err(|e| ServiceError::Db(e.to_string()))?;
         self.cache.lock().unwrap().insert(node);
 
         info!("node_service: created {title:?} ({id})");
@@ -184,7 +186,9 @@ impl NodeService {
             byte_size: bytes.len() as u64,
             is_favorite: meta.is_favorite,
         };
-        self.repo().upsert(&updated).map_err(|e| ServiceError::Db(e.to_string()))?;
+        self.repo()
+            .upsert(&updated)
+            .map_err(|e| ServiceError::Db(e.to_string()))?;
         self.cache.lock().unwrap().insert(updated);
 
         info!("node_service: saved {id}");
@@ -195,7 +199,9 @@ impl NodeService {
         let meta = self.get_meta(id)?;
         // File may already be gone if deleted externally — that's fine.
         let _ = self.writer().delete_node(&meta.path);
-        self.repo().delete(id).map_err(|e| ServiceError::Db(e.to_string()))?;
+        self.repo()
+            .delete(id)
+            .map_err(|e| ServiceError::Db(e.to_string()))?;
         self.cache.lock().unwrap().invalidate(id);
         info!("node_service: deleted {id}");
         Ok(())
@@ -212,13 +218,39 @@ impl NodeService {
             .list_recent_opened(limit)
             .map_err(|e| ServiceError::Db(e.to_string()))
     }
+
+    /// Flips is_favorite for `id` and returns the new state.
+    pub fn toggle_favorite(&self, id: &str) -> Result<bool, ServiceError> {
+        let new_state = self
+            .repo()
+            .toggle_favorite(id)
+            .map_err(|e| ServiceError::Db(e.to_string()))?;
+        // Invalidate cached metadata so subsequent get_meta returns the new state.
+        self.cache.lock().unwrap().invalidate(id);
+        Ok(new_state)
+    }
+
+    pub fn list_favorites(&self) -> Result<Vec<Node>, ServiceError> {
+        self.repo()
+            .list_favorites()
+            .map_err(|e| ServiceError::Db(e.to_string()))
+    }
+
+    pub fn list_recent_info(&self, limit: usize) -> Result<Vec<NodeInfo>, ServiceError> {
+        self.repo()
+            .list_recent_info(limit)
+            .map_err(|e| ServiceError::Db(e.to_string()))
+    }
 }
 
 fn validate_title(title: &str) -> Result<(), ServiceError> {
     if title.is_empty() {
         return Err(ServiceError::InvalidInput("title is empty".into()));
     }
-    if title.chars().any(|c| INVALID_TITLE_CHARS.contains(&c) || c.is_control()) {
+    if title
+        .chars()
+        .any(|c| INVALID_TITLE_CHARS.contains(&c) || c.is_control())
+    {
         return Err(ServiceError::InvalidInput(format!(
             "title contains invalid characters: {title:?}"
         )));

@@ -37,9 +37,29 @@ pub struct Tag {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Folder {
+pub struct Log {
     pub id: i64,
     pub name: String,
     pub parent_id: Option<i64>,
     pub sort_key: f64,
+}
+
+/// Lightweight node DTO used in list and member views.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NodeInfo {
+    pub id: String,
+    pub title: String,
+    pub created_at: i64,
+    pub is_favorite: bool,
+}
+
+impl From<Node> for NodeInfo {
+    fn from(n: Node) -> Self {
+        Self {
+            id: n.id.to_string(),
+            title: n.title,
+            created_at: n.created_at,
+            is_favorite: n.is_favorite,
+        }
+    }
 }

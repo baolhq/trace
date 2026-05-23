@@ -3,10 +3,8 @@ use std::{path::PathBuf, sync::Arc};
 use tauri::{AppHandle, Emitter};
 use tokio::sync::{broadcast, mpsc};
 use trace_services::{
-    events::CoreEvent,
-    node_service::NodeService,
-    suggest_service::SuggestService,
-    tag_service::TagService,
+    events::CoreEvent, log_service::LogService, node_service::NodeService,
+    suggest_service::SuggestService, tag_service::TagService,
 };
 use trace_store::db::{migrations, Database};
 use trace_workers::{FileSync, Scanner, Watcher};
@@ -71,9 +69,18 @@ pub fn init(vault_path: PathBuf, db_path: PathBuf, app_handle: AppHandle) -> App
 
     let node_service = NodeService::new(Arc::clone(&db), vault_path.clone());
     let tag_service = TagService::new(Arc::clone(&db));
+    let log_service = LogService::new(Arc::clone(&db));
     let suggest_service = SuggestService::new(Arc::clone(&db));
     suggest_service.rebuild();
-    info!("startup: scanner, watcher, file-sync, node-service, tag-service, and suggest-service ready");
+    info!("startup: scanner, watcher, file-sync, node-service, tag-service, log-service, and suggest-service ready");
 
-    AppState::new(db, vault_path, event_tx, node_service, tag_service, suggest_service)
+    AppState::new(
+        db,
+        vault_path,
+        event_tx,
+        node_service,
+        tag_service,
+        log_service,
+        suggest_service,
+    )
 }

@@ -1,4 +1,7 @@
+pub mod logs;
 pub mod nodes;
 pub mod suggest;
 pub mod tags;
 pub mod window;
+
+pub use trace_core::model::NodeInfo;
