@@ -693,8 +693,8 @@
     :global(body) {
         margin: 0;
         font-family: system-ui, -apple-system, sans-serif;
-        background: #fff;
-        color: #1a1a1a;
+        background: var(--bg-primary);
+        color: var(--fg-primary);
     }
 
     .shell {
@@ -707,8 +707,8 @@
     .sidebar {
         width: 240px;
         flex-shrink: 0;
-        border-right: 1px solid #e8e8e8;
-        background: #fafafa;
+        border-right: 1px solid var(--bg-border);
+        background: var(--bg-panel);
         display: flex;
         flex-direction: column;
         overflow: hidden;
@@ -733,7 +733,7 @@
         flex-direction: column;
         min-height: 0;
         flex: 0 0 auto;
-        border-top: 1px solid #e8e8e8;
+        border-top: 1px solid var(--bg-border);
     }
 
     .panel.open {
@@ -751,12 +751,12 @@
     }
 
     .panel-header:hover {
-        background: #f0f0f0;
+        background: var(--bg-hover);
     }
 
     .panel-arrow {
         font-size: 0.65rem;
-        color: #999;
+        color: var(--cursor);
         width: 10px;
         text-align: center;
         flex-shrink: 0;
@@ -768,7 +768,7 @@
         font-weight: 600;
         letter-spacing: 0.07em;
         text-transform: uppercase;
-        color: #aaa;
+        color: var(--cursor);
     }
 
     .panel-body {
@@ -776,7 +776,7 @@
         min-height: 0;
         overflow-y: auto;
         scrollbar-width: thin;
-        scrollbar-color: #ddd transparent;
+        scrollbar-color: var(--bg-border) transparent;
     }
 
     .panel-body.no-scroll {
@@ -787,7 +787,7 @@
 
     .sidebar-header {
         padding: 1rem 1rem 0.5rem;
-        border-bottom: 1px solid #e8e8e8;
+        border-bottom: 1px solid var(--bg-border);
     }
 
     .app-name {
@@ -795,7 +795,7 @@
         font-weight: 600;
         letter-spacing: 0.08em;
         text-transform: uppercase;
-        color: #888;
+        color: var(--cursor);
     }
 
     .create-row {
@@ -808,29 +808,34 @@
         flex: 1;
         padding: 0.3rem 0.5rem;
         font-size: 0.85rem;
-        border: 1px solid #ddd;
+        border: 1px solid var(--bg-border);
         border-radius: 4px;
-        background: #fff;
+        background: var(--bg-primary);
+        color: var(--fg-primary);
         outline: none;
     }
 
+    .create-row input::placeholder {
+        color: var(--cursor);
+    }
+
     .create-row input:focus {
-        border-color: #4361ee;
+        border-color: var(--fg-interactive);
     }
 
     .create-row button {
         padding: 0.3rem 0.55rem;
         font-size: 1rem;
         line-height: 1;
-        border: 1px solid #ddd;
+        border: 1px solid var(--bg-border);
         border-radius: 4px;
-        background: #fff;
+        background: var(--bg-panel);
         cursor: pointer;
-        color: #555;
+        color: var(--fg-muted);
     }
 
     .create-row button:hover:not(:disabled) {
-        background: #f0f0f0;
+        background: var(--bg-hover);
     }
 
     .create-row button:disabled {
@@ -840,7 +845,7 @@
 
     .sidebar-error {
         font-size: 0.75rem;
-        color: #c00;
+        color: var(--fg-error);
         padding: 0 0.75rem;
         margin: 0 0 0.5rem;
     }
@@ -851,13 +856,13 @@
         border: none;
         font-size: 1rem;
         line-height: 1;
-        color: #bbb;
+        color: var(--cursor);
         cursor: pointer;
         padding: 0 0.1rem;
     }
 
     .section-add:hover {
-        color: #555;
+        color: var(--fg-muted);
     }
 
     /* ── Node items (shared by favorites + recents) ── */
@@ -870,15 +875,15 @@
     }
 
     .node-item:hover {
-        background: #efefef;
+        background: var(--bg-hover);
     }
 
     .node-item.active {
-        background: #e8eeff;
+        background: var(--bg-active);
     }
 
     .node-item.active .node-btn {
-        color: #2d3fe6;
+        color: var(--fg-interactive);
     }
 
     .node-btn {
@@ -903,7 +908,7 @@
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
-        color: inherit;
+        color: var(--cursor);
     }
 
     .action-btn {
@@ -916,7 +921,7 @@
         cursor: pointer;
         padding: 0 0.15rem;
         transition: opacity 0.1s;
-        color: #bbb;
+        color: var(--cursor);
     }
 
     .node-item:hover .action-btn,
@@ -927,25 +932,25 @@
 
     .fav-btn.fav-on {
         opacity: 1;
-        color: #f5a623;
+        color: var(--fg-warning);
     }
 
     .fav-btn:hover {
-        color: #f5a623 !important;
+        color: var(--fg-warning) !important;
     }
 
     .delete-btn:hover {
-        color: #c00;
+        color: var(--fg-error);
     }
 
     .remove-btn:hover {
-        color: #c00;
+        color: var(--fg-error);
     }
 
     .empty-hint {
         padding: 0.4rem 0.75rem;
         font-size: 0.78rem;
-        color: #bbb;
+        color: var(--cursor);
     }
 
     /* ── Log tree items ── */
@@ -958,12 +963,12 @@
     }
 
     .log-item:hover {
-        background: #efefef;
+        background: var(--bg-hover);
     }
 
     .log-item.drag-over {
-        background: #dce4ff;
-        outline: 1px dashed #4361ee;
+        background: var(--bg-active);
+        outline: 1px dashed var(--fg-interactive);
         outline-offset: -1px;
     }
 
@@ -983,7 +988,7 @@
     .log-arrow {
         font-size: 0.65rem;
         flex-shrink: 0;
-        color: #999;
+        color: var(--cursor);
         width: 10px;
         text-align: center;
     }
@@ -993,6 +998,7 @@
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+        color: var(--cursor);
     }
 
     .log-action {
@@ -1002,12 +1008,17 @@
     .log-rename-input {
         flex: 1;
         font-size: 0.875rem;
-        border: 1px solid #4361ee;
+        border: 1px solid var(--fg-interactive);
         border-radius: 3px;
         padding: 0.1rem 0.25rem;
-        background: #fff;
+        background: var(--bg-primary);
+        color: var(--fg-primary);
         outline: none;
         min-width: 0;
+    }
+
+    .log-rename-input::placeholder {
+        color: var(--cursor);
     }
 
     .log-create {
@@ -1018,12 +1029,17 @@
     .log-create-input {
         flex: 1;
         font-size: 0.875rem;
-        border: 1px solid #4361ee;
+        border: 1px solid var(--fg-interactive);
         border-radius: 3px;
         padding: 0.2rem 0.4rem;
-        background: #fff;
+        background: var(--bg-primary);
+        color: var(--fg-primary);
         outline: none;
         min-width: 0;
+    }
+
+    .log-create-input::placeholder {
+        color: var(--cursor);
     }
 
     /* ── Inline log members ── */
@@ -1033,26 +1049,25 @@
         gap: 0.15rem;
         padding-right: 0.4rem;
         cursor: default;
-        border-left: 2px solid #e8e8e8;
+        border-left: 2px solid var(--bg-border);
     }
 
     .log-member-item:hover {
-        background: #efefef;
+        background: var(--bg-hover);
     }
 
     .log-member-item.drag-over {
-        background: #dce4ff;
-        outline: 1px dashed #4361ee;
+        background: var(--bg-active);
+        outline: 1px dashed var(--fg-interactive);
         outline-offset: -1px;
     }
 
     .log-member-item.active {
-        background: #e8eeff;
-        border-left-color: #4361ee;
+        background: var(--bg-active);
     }
 
     .log-member-item.active .node-btn {
-        color: #2d3fe6;
+        color: var(--fg-interactive);
     }
 
     /* ── Main pane ── */
@@ -1069,7 +1084,7 @@
         top: 0.75rem;
         right: 1rem;
         font-size: 0.75rem;
-        color: #aaa;
+        color: var(--cursor);
         pointer-events: none;
         z-index: 1;
     }
@@ -1079,7 +1094,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        color: #aaa;
+        color: var(--cursor);
         font-size: 0.9rem;
     }
 </style>

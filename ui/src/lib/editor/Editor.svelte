@@ -325,7 +325,7 @@
         outline: none;
         font-size: 0.95rem;
         line-height: 1.7;
-        color: #1a1a1a;
+        color: var(--fg-primary);
     }
 
     .editor-content :global(.ProseMirror h1) {
@@ -363,13 +363,13 @@
     .editor-content :global(.ProseMirror code) {
         font-family: ui-monospace, monospace;
         font-size: 0.875em;
-        background: #f3f3f3;
+        background: var(--bg-hover);
         border-radius: 3px;
         padding: 0.1em 0.3em;
     }
 
     .editor-content :global(.ProseMirror pre) {
-        background: #f6f6f6;
+        background: var(--bg-hover);
         border-radius: 6px;
         padding: 1rem;
         overflow-x: auto;
@@ -383,23 +383,23 @@
     }
 
     .editor-content :global(.ProseMirror blockquote) {
-        border-left: 3px solid #ddd;
+        border-left: 3px solid var(--bg-border);
         margin: 0 0 0.75rem;
         padding-left: 1rem;
-        color: #555;
+        color: var(--fg-muted);
     }
 
     .editor-content :global(.ProseMirror hr) {
         border: none;
-        border-top: 1px solid #e0e0e0;
+        border-top: 1px solid var(--bg-border);
         margin: 1.5rem 0;
     }
 
     /*noinspection CssUnusedSymbol*/
     .editor-content :global(.wiki-link) {
         display: inline-block;
-        background: #eef2ff;
-        color: #4361ee;
+        background: var(--bg-active);
+        color: var(--fg-interactive);
         border-radius: 4px;
         padding: 0 0.3em;
         font-size: 0.9em;
@@ -409,7 +409,7 @@
 
     /*noinspection CssUnusedSymbol*/
     .editor-content :global(.tag) {
-        color: #7c3aed;
+        color: var(--accent);
         font-weight: 500;
         cursor: pointer;
         user-select: none;
@@ -423,13 +423,13 @@
 
     .editor-content :global(.ProseMirror th),
     .editor-content :global(.ProseMirror td) {
-        border: 1px solid #ddd;
+        border: 1px solid var(--bg-border);
         padding: 0.4rem 0.6rem;
         text-align: left;
     }
 
     .editor-content :global(.ProseMirror th) {
-        background: #f9f9f9;
+        background: var(--bg-panel);
         font-weight: 600;
     }
 
@@ -439,10 +439,10 @@
         z-index: 200;
         min-width: 200px;
         max-width: 320px;
-        background: #fff;
-        border: 1px solid #ddd;
+        background: var(--bg-panel);
+        border: 1px solid var(--bg-border);
         border-radius: 6px;
-        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
         overflow: hidden;
     }
 
@@ -458,22 +458,22 @@
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        color: #1a1a1a;
+        color: var(--fg-primary);
     }
 
     .suggestion-item.selected,
     .suggestion-item:hover {
-        background: #eef2ff;
-        color: #2d3fe6;
+        background: var(--bg-active);
+        color: var(--fg-interactive);
     }
 
     .tag-prefix {
-        color: #7c3aed;
+        color: var(--accent);
         font-weight: 500;
     }
 
     .suggestion-item.tag-item.selected .tag-prefix,
     .suggestion-item.tag-item:hover .tag-prefix {
-        color: #2d3fe6;
+        color: var(--fg-interactive);
     }
 </style>
