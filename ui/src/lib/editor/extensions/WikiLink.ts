@@ -1,4 +1,4 @@
-import { Node, mergeAttributes } from "@tiptap/core";
+import { Node, mergeAttributes, nodeInputRule } from "@tiptap/core";
 
 export interface WikiLinkOptions {
   HTMLAttributes: Record<string, unknown>;
@@ -48,6 +48,21 @@ export const WikiLink = Node.create<WikiLinkOptions>({
       node.attrs.isIdRef
         ? `[[node:${node.attrs.target}]]`
         : `[[${node.attrs.target}]]`,
+    ];
+  },
+
+  addInputRules() {
+    // Converts [[target]] typed by the user into a wikiLink atom node.
+    return [
+      nodeInputRule({
+        find: /\[\[([^\]]+)]]$/,
+        type: this.type,
+        getAttributes: (match) => {
+          const raw = match[1];
+          const isIdRef = raw.startsWith("node:");
+          return { target: isIdRef ? raw.slice(5) : raw, isIdRef };
+        },
+      }),
     ];
   },
 

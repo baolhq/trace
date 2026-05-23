@@ -1,7 +1,7 @@
 use tauri::State;
 use tracing::{info, warn};
 
-use trace_core::{markdown::doc::PmDoc, model::Node};
+use trace_core::{markdown::{doc::PmDoc, extract_tags}, model::Node};
 
 use crate::state::AppState;
 
@@ -52,7 +52,12 @@ pub fn open_node(id: String, state: State<'_, AppState>) -> Result<OpenNodeRespo
 
 #[tauri::command]
 pub fn save_node(id: String, doc: PmDoc, state: State<'_, AppState>) -> Result<(), String> {
-    state.node_service.save_doc(&id, &doc).map_err(|e| e.to_string())
+    state.node_service.save_doc(&id, &doc).map_err(|e| e.to_string())?;
+    let tags = extract_tags(&doc);
+    if let Err(e) = state.tag_service.sync_tags(&id, &tags) {
+        warn!("sync_tags failed for {id}: {e}");
+    }
+    Ok(())
 }
 
 #[tauri::command]

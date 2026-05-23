@@ -6,4 +6,5 @@ edition = "2021"
 [dependencies]
 trace-core = { path = "../trace-core" }
 trace-store = { path = "../trace-store" }
+rusqlite = { workspace = true }
 tracing = { workspace = true }

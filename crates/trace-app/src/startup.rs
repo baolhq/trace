@@ -2,7 +2,7 @@ use std::{path::PathBuf, sync::Arc};
 
 use tauri::{AppHandle, Emitter};
 use tokio::sync::{broadcast, mpsc};
-use trace_services::{events::CoreEvent, node_service::NodeService};
+use trace_services::{events::CoreEvent, node_service::NodeService, tag_service::TagService};
 use trace_store::db::{migrations, Database};
 use trace_workers::{FileSync, Scanner, Watcher};
 use tracing::{info, instrument};
@@ -27,7 +27,13 @@ pub fn init(vault_path: PathBuf, db_path: PathBuf, app_handle: AppHandle) -> App
 
     let (scan_tx, _scan_rx) = mpsc::channel::<String>(256);
 
-    let scanner = Scanner::new(vault_path.clone(), Arc::clone(&db), scan_tx, event_tx.clone());
+    let scanner = Scanner::new(
+        vault_path.clone(),
+        Arc::clone(&db),
+        TagService::new(Arc::clone(&db)),
+        scan_tx,
+        event_tx.clone(),
+    );
     tauri::async_runtime::spawn(async move { scanner.run().await });
 
     let watcher = Watcher::new(vault_path.clone(), event_tx.clone());
@@ -36,6 +42,7 @@ pub fn init(vault_path: PathBuf, db_path: PathBuf, app_handle: AppHandle) -> App
     let mut file_sync = FileSync::new(
         vault_path.clone(),
         Arc::clone(&db),
+        TagService::new(Arc::clone(&db)),
         event_tx.clone(),
         event_rx,
     );
@@ -58,7 +65,8 @@ pub fn init(vault_path: PathBuf, db_path: PathBuf, app_handle: AppHandle) -> App
     });
 
     let node_service = NodeService::new(Arc::clone(&db), vault_path.clone());
-    info!("startup: scanner, watcher, file-sync, and node-service ready");
+    let tag_service = TagService::new(Arc::clone(&db));
+    info!("startup: scanner, watcher, file-sync, node-service, and tag-service ready");
 
-    AppState::new(db, vault_path, event_tx, node_service)
+    AppState::new(db, vault_path, event_tx, node_service, tag_service)
 }

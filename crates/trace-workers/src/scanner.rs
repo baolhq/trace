@@ -4,8 +4,12 @@ use tokio::sync::{broadcast, mpsc};
 use tracing::{debug, info, warn};
 use walkdir::WalkDir;
 
-use trace_core::{hash::hash_content, id::NodeId, markdown::extract_title};
-use trace_services::events::CoreEvent;
+use trace_core::{
+    hash::hash_content,
+    id::NodeId,
+    markdown::{extract_tags, extract_title, parse::parse},
+};
+use trace_services::{events::CoreEvent, tag_service::TagService};
 use trace_store::db::Database;
 
 use crate::util::{mtime_of, now_ms};
@@ -13,6 +17,7 @@ use crate::util::{mtime_of, now_ms};
 pub struct Scanner {
     vault_path: PathBuf,
     db: Arc<Database>,
+    tag_service: TagService,
     /// Sends relative paths of changed/new .md files to the indexer pipeline.
     tx: mpsc::Sender<String>,
     event_tx: broadcast::Sender<CoreEvent>,
@@ -22,10 +27,11 @@ impl Scanner {
     pub fn new(
         vault_path: PathBuf,
         db: Arc<Database>,
+        tag_service: TagService,
         tx: mpsc::Sender<String>,
         event_tx: broadcast::Sender<CoreEvent>,
     ) -> Self {
-        Self { vault_path, db, tx, event_tx }
+        Self { vault_path, db, tag_service, tx, event_tx }
     }
 
     pub async fn run(&self) {
@@ -66,6 +72,23 @@ impl Scanner {
             } else if stored.as_deref() != Some(hash.as_str()) {
                 debug!("scanner: changed: {rel}");
                 changed += 1;
+                let content = std::str::from_utf8(&bytes).unwrap_or("");
+                let node_id: Option<String> = {
+                    let conn = self.db.conn();
+                    conn.query_row(
+                        "SELECT id FROM nodes WHERE path=?1",
+                        rusqlite::params![rel],
+                        |row| row.get(0),
+                    )
+                    .ok()
+                };
+                if let Some(node_id) = node_id {
+                    let doc = parse(content);
+                    let tags = extract_tags(&doc);
+                    if let Err(e) = self.tag_service.sync_tags(&node_id, &tags) {
+                        warn!("scanner: sync_tags failed for {rel}: {e}");
+                    }
+                }
                 let _ = self.tx.send(rel).await;
             }
         }
@@ -114,15 +137,30 @@ impl Scanner {
         let content = std::str::from_utf8(bytes).unwrap_or("");
         let title = extract_title(content, rel);
         let id = NodeId::generate();
-        let conn = self.db.conn();
-        match conn.execute(
-            "INSERT OR IGNORE INTO nodes(id, path, title, created_at, modified_at, content_hash, byte_size)
-             VALUES(?1, ?2, ?3, ?4, ?4, ?5, ?6)",
-            rusqlite::params![id.as_str(), rel, title, mtime_ms, hash, bytes.len() as i64],
-        ) {
-            Ok(n) if n > 0 => debug!("scanner: inserted new node: {rel} ({id})"),
-            Ok(_) => {}
-            Err(e) => warn!("scanner: insert failed for {rel}: {e}"),
+        let inserted = {
+            let conn = self.db.conn();
+            match conn.execute(
+                "INSERT OR IGNORE INTO nodes(id, path, title, created_at, modified_at, content_hash, byte_size)
+                 VALUES(?1, ?2, ?3, ?4, ?4, ?5, ?6)",
+                rusqlite::params![id.as_str(), rel, title, mtime_ms, hash, bytes.len() as i64],
+            ) {
+                Ok(n) if n > 0 => {
+                    debug!("scanner: inserted new node: {rel} ({id})");
+                    true
+                }
+                Ok(_) => false,
+                Err(e) => {
+                    warn!("scanner: insert failed for {rel}: {e}");
+                    false
+                }
+            }
+        };
+        if inserted {
+            let doc = parse(content);
+            let tags = extract_tags(&doc);
+            if let Err(e) = self.tag_service.sync_tags(id.as_str(), &tags) {
+                warn!("scanner: sync_tags failed for {rel}: {e}");
+            }
         }
     }
 }

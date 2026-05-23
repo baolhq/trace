@@ -7,7 +7,7 @@ use std::{
 };
 
 use tokio::sync::broadcast;
-use trace_services::{events::CoreEvent, node_service::NodeService};
+use trace_services::{events::CoreEvent, node_service::NodeService, tag_service::TagService};
 use trace_store::db::Database;
 
 pub struct AppState {
@@ -15,6 +15,7 @@ pub struct AppState {
     pub vault_path: PathBuf,
     pub event_tx: broadcast::Sender<CoreEvent>,
     pub node_service: NodeService,
+    pub tag_service: TagService,
     backend_ready: AtomicBool,
 }
 
@@ -24,8 +25,9 @@ impl AppState {
         vault_path: PathBuf,
         event_tx: broadcast::Sender<CoreEvent>,
         node_service: NodeService,
+        tag_service: TagService,
     ) -> Self {
-        Self { db, vault_path, event_tx, node_service, backend_ready: AtomicBool::new(false) }
+        Self { db, vault_path, event_tx, node_service, tag_service, backend_ready: AtomicBool::new(false) }
     }
 
     pub fn mark_backend_ready(&self) {
