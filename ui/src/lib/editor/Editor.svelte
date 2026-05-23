@@ -15,13 +15,12 @@
 
     interface Props {
         doc: PmDoc;
-        nodeId: string;
         onSave: (doc: object) => void;
         nodes?: NodeSummary[];
         tags?: string[];
     }
 
-    let {doc, nodeId, onSave, nodes = [], tags = []}: Props = $props();
+    let {doc, onSave, nodes = [], tags = []}: Props = $props();
 
     let container: HTMLDivElement;
     let editor: Editor | null = null;
@@ -63,7 +62,7 @@
 
     // ── Editor setup ─────────────────────────────────────────────────────────────
     function buildEditor(element: HTMLElement, initialDoc: PmDoc): Editor {
-        return new Editor({
+        const ed = new Editor({
             element,
             extensions: [
                 StarterKit.configure({
@@ -79,14 +78,15 @@
                 Tag,
             ],
             content: pmDocToTipTap(initialDoc),
-            onUpdate: ({editor: ed}) => {
-                scheduleSave();
-                refreshSuggestion(ed);
-            },
-            onSelectionUpdate: ({editor: ed}) => {
-                refreshSuggestion(ed);
-            },
         });
+        ed.on('update', ({ editor: e }) => {
+            scheduleSave();
+            refreshSuggestion(e);
+        });
+        ed.on('selectionUpdate', ({ editor: e }) => {
+            refreshSuggestion(e);
+        });
+        return ed;
     }
 
     function scheduleSave() {
@@ -209,23 +209,6 @@
         editor?.destroy();
         editor = null;
     });
-
-    // Reload editor content when the doc prop changes (node switch).
-    // Always evaluate pmDocToTipTap(doc) first so Svelte 5 tracks `doc` as a
-    // reactive dependency — without this, the short-circuit `editor && doc`
-    // would skip the read on the initial run (editor is null then) and Svelte
-    // would never re-run the effect when doc changes later.
-    $effect(() => {
-        const content = pmDocToTipTap(doc);
-        if (editor) {
-            if (saveTimer) {
-                clearTimeout(saveTimer);
-                saveTimer = null;
-            }
-            // Suppress onUpdate so setContent doesn't trigger a spurious autosave.
-            editor.commands.setContent(content, {emitUpdate: false});
-        }
-    });
 </script>
 
 <div class="editor-wrap">
@@ -270,46 +253,47 @@
         min-height: 100%;
     }
 
-    :global(.editor-content .ProseMirror) {
+    /*noinspection CssUnusedSymbol*/
+    .editor-content :global(.ProseMirror) {
         outline: none;
         font-size: 0.95rem;
         line-height: 1.7;
         color: #1a1a1a;
     }
 
-    :global(.editor-content .ProseMirror h1) {
+    .editor-content :global(.ProseMirror h1) {
         font-size: 1.75rem;
         font-weight: 700;
         margin: 1.5rem 0 0.5rem;
     }
 
-    :global(.editor-content .ProseMirror h2) {
+    .editor-content :global(.ProseMirror h2) {
         font-size: 1.4rem;
         font-weight: 600;
         margin: 1.25rem 0 0.4rem;
     }
 
-    :global(.editor-content .ProseMirror h3) {
+    .editor-content :global(.ProseMirror h3) {
         font-size: 1.15rem;
         font-weight: 600;
         margin: 1rem 0 0.35rem;
     }
 
-    :global(.editor-content .ProseMirror p) {
+    .editor-content :global(.ProseMirror p) {
         margin: 0 0 0.75rem;
     }
 
-    :global(.editor-content .ProseMirror ul),
-    :global(.editor-content .ProseMirror ol) {
+    .editor-content :global(.ProseMirror ul),
+    .editor-content :global(.ProseMirror ol) {
         padding-left: 1.5rem;
         margin: 0 0 0.75rem;
     }
 
-    :global(.editor-content .ProseMirror li) {
+    .editor-content :global(.ProseMirror li) {
         margin-bottom: 0.2rem;
     }
 
-    :global(.editor-content .ProseMirror code) {
+    .editor-content :global(.ProseMirror code) {
         font-family: ui-monospace, monospace;
         font-size: 0.875em;
         background: #f3f3f3;
@@ -317,7 +301,7 @@
         padding: 0.1em 0.3em;
     }
 
-    :global(.editor-content .ProseMirror pre) {
+    .editor-content :global(.ProseMirror pre) {
         background: #f6f6f6;
         border-radius: 6px;
         padding: 1rem;
@@ -325,26 +309,27 @@
         margin: 0 0 1rem;
     }
 
-    :global(.editor-content .ProseMirror pre code) {
+    .editor-content :global(.ProseMirror pre code) {
         background: none;
         padding: 0;
         font-size: 0.875rem;
     }
 
-    :global(.editor-content .ProseMirror blockquote) {
+    .editor-content :global(.ProseMirror blockquote) {
         border-left: 3px solid #ddd;
         margin: 0 0 0.75rem;
         padding-left: 1rem;
         color: #555;
     }
 
-    :global(.editor-content .ProseMirror hr) {
+    .editor-content :global(.ProseMirror hr) {
         border: none;
         border-top: 1px solid #e0e0e0;
         margin: 1.5rem 0;
     }
 
-    :global(.editor-content .wiki-link) {
+    /*noinspection CssUnusedSymbol*/
+    .editor-content :global(.wiki-link) {
         display: inline-block;
         background: #eef2ff;
         color: #4361ee;
@@ -355,27 +340,28 @@
         user-select: none;
     }
 
-    :global(.editor-content .tag) {
+    /*noinspection CssUnusedSymbol*/
+    .editor-content :global(.tag) {
         color: #7c3aed;
         font-weight: 500;
         cursor: pointer;
         user-select: none;
     }
 
-    :global(.editor-content .ProseMirror table) {
+    .editor-content :global(.ProseMirror table) {
         border-collapse: collapse;
         width: 100%;
         margin-bottom: 1rem;
     }
 
-    :global(.editor-content .ProseMirror th),
-    :global(.editor-content .ProseMirror td) {
+    .editor-content :global(.ProseMirror th),
+    .editor-content :global(.ProseMirror td) {
         border: 1px solid #ddd;
         padding: 0.4rem 0.6rem;
         text-align: left;
     }
 
-    :global(.editor-content .ProseMirror th) {
+    .editor-content :global(.ProseMirror th) {
         background: #f9f9f9;
         font-weight: 600;
     }

@@ -165,13 +165,14 @@
             {#if saving}
                 <div class="save-indicator">Saving…</div>
             {/if}
-            <Editor
-                    doc={activeDoc}
-                    nodeId={activeId}
-                    onSave={handleSave}
-                    {nodes}
-                    {tags}
-            />
+            {#key activeId}
+                <Editor
+                        doc={activeDoc}
+                        onSave={handleSave}
+                        {nodes}
+                        {tags}
+                />
+            {/key}
         {:else}
             <div class="empty-state">
                 <p>Select a note or create one to start writing.</p>
