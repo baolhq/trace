@@ -24,16 +24,17 @@ pub struct OpenNodeResponse {
 #[tauri::command]
 pub fn list_nodes(state: State<'_, AppState>) -> Result<Vec<NodeInfo>, String> {
     let conn = state.db.conn();
-    // Recently-opened notes float to the top; fall back to modified_at for unvisited.
+    // Return the 20 most-recently-touched notes. Recently-opened float to the top;
+    // unvisited notes fall back to modified_at order.
     let mut stmt = conn
         .prepare(
             "SELECT n.id, n.title, n.created_at
              FROM nodes n
              LEFT JOIN recent_nodes rn ON n.id = rn.node_id
-             ORDER BY rn.opened_at DESC NULLS LAST, n.modified_at DESC, n.title",
+             ORDER BY rn.opened_at DESC NULLS LAST, n.modified_at DESC, n.title
+             LIMIT 20",
         )
         .map_err(|e| e.to_string())?;
-
     let nodes = stmt
         .query_map([], |row| {
             Ok(NodeInfo {
@@ -45,7 +46,6 @@ pub fn list_nodes(state: State<'_, AppState>) -> Result<Vec<NodeInfo>, String> {
         .map_err(|e| e.to_string())?
         .filter_map(|r| r.ok())
         .collect();
-
     Ok(nodes)
 }
 

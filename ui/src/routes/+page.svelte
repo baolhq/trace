@@ -5,6 +5,12 @@
     import Editor from "$lib/editor/Editor.svelte";
     import {tipTapToPmDoc, type PmDoc} from "$lib/editor/doc";
 
+    interface NodeListItem {
+        id: string;
+        title: string;
+        created_at: number;
+    }
+
     interface NodeMeta {
         id: string;
         title: string;
@@ -17,7 +23,7 @@
         doc: PmDoc;
     }
 
-    let nodes: NodeMeta[] = $state([]);
+    let nodes: NodeListItem[] = $state([]);
     let activeId: string | null = $state(null);
     let activeDoc: PmDoc | null = $state(null);
     let activeMeta: NodeMeta | null = $state(null);
@@ -30,9 +36,8 @@
     async function loadNodes() {
         const gen = ++loadGen;
         try {
-            const raw: NodeMeta[] = await invoke("list_nodes");
+            const raw = await invoke<NodeListItem[]>("list_nodes");
             if (gen !== loadGen) return;
-            // Deduplicate by id — guards against any concurrent scan/watcher anomaly.
             const seen = new Set<string>();
             nodes = raw.filter(n => !seen.has(n.id) && seen.add(n.id) as unknown as boolean);
         } catch (e) {
@@ -42,11 +47,11 @@
 
     async function openNode(id: string) {
         if (activeId === id) return;
-        // Optimistic reorder: move clicked note to top immediately, no IPC wait.
+        // Optimistic reorder: move clicked note to top immediately.
         const hit = nodes.find(n => n.id === id);
         if (hit) nodes = [hit, ...nodes.filter(n => n.id !== id)];
         try {
-            const res: OpenNodeResponse = await invoke("open_node", {id});
+            const res = await invoke<OpenNodeResponse>("open_node", {id});
             activeId = id;
             activeMeta = res.meta;
             activeDoc = res.doc;
@@ -61,7 +66,7 @@
         const title = newTitle.trim();
         if (!title) return;
         try {
-            const id: string = await invoke("create_node", {title});
+            const id = await invoke<string>("create_node", {title});
             newTitle = "";
             await loadNodes();
             await openNode(id);
@@ -267,10 +272,12 @@
 
     .node-list {
         flex: 1;
-        overflow-y: auto;
+        overflow: hidden;
         list-style: none;
         margin: 0;
         padding: 0.25rem 0;
+        -webkit-mask-image: linear-gradient(to bottom, black 0%, transparent 100%);
+        mask-image: linear-gradient(to bottom, black 0%, transparent 100%);
     }
 
     .node-item {
