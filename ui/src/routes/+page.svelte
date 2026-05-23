@@ -168,7 +168,7 @@
             error = '';
         } catch (e) {
             error = String(e);
-            loadRecents();
+            await loadRecents();
         }
     }
 
@@ -431,9 +431,9 @@
 
             <div class="create-row">
                 <input
-                        bind:value={newTitle}
-                        onkeydown={handleCreateKey}
-                        placeholder="New note…"
+                    bind:value={newTitle}
+                    onkeydown={handleCreateKey}
+                    placeholder="New note…"
                 />
                 <button onclick={createNode} disabled={!newTitle.trim()} title="Create">+</button>
             </div>
@@ -458,33 +458,33 @@
                     <div class="panel-body">
                         {#each favorites as node (node.id)}
                             <div
-                                    class="node-item"
-                                    class:active={activeNodeId === node.id}
-                                    role="option"
-                                    aria-selected={activeNodeId === node.id}
-                                    tabindex="-1"
+                                class="node-item"
+                                class:active={activeNodeId === node.id}
+                                role="option"
+                                aria-selected={activeNodeId === node.id}
+                                tabindex="-1"
                             >
                                 <button
-                                        class="node-btn"
-                                        onpointerdown={(e) => onNodePointerDown(node.id, e)}
-                                        onpointermove={onNodePointerMove}
-                                        onpointerup={() => onNodePointerUp(node.id)}
-                                        onpointercancel={onNodePointerCancel}
+                                    class="node-btn"
+                                    onpointerdown={(e) => onNodePointerDown(node.id, e)}
+                                    onpointermove={onNodePointerMove}
+                                    onpointerup={() => onNodePointerUp(node.id)}
+                                    onpointercancel={onNodePointerCancel}
                                 >
                                     <span class="node-title">{node.title}</span>
                                 </button>
                                 <button
-                                        class="action-btn fav-btn fav-on"
-                                        onclick={(e) => toggleFavorite(node.id, e)}
-                                        title="Unfavorite"
-                                        tabindex="-1"
+                                    class="action-btn fav-btn fav-on"
+                                    onclick={(e) => toggleFavorite(node.id, e)}
+                                    title="Unfavorite"
+                                    tabindex="-1"
                                 >★
                                 </button>
                                 <button
-                                        class="action-btn delete-btn"
-                                        onclick={(e) => deleteNode(node.id, e)}
-                                        title="Delete"
-                                        tabindex="-1"
+                                    class="action-btn delete-btn"
+                                    onclick={(e) => deleteNode(node.id, e)}
+                                    title="Delete"
+                                    tabindex="-1"
                                 >×
                                 </button>
                             </div>
@@ -510,14 +510,14 @@
                         {#each flatItems as item (item.type === 'log' ? `log-${item.log.id}` : `member-${item.logId}-${item.node.id}`)}
                             {#if item.type === 'log'}
                                 <div
-                                        class="log-item"
-                                        class:drag-over={dragOverLogId === item.log.id}
-                                        role="treeitem"
-                                        aria-expanded={expandedLogs.has(item.log.id)}
-                                        aria-selected={false}
-                                        tabindex="-1"
-                                        data-log-id={item.log.id}
-                                        style="padding-left: {0.75 + item.depth * 0.85}rem"
+                                    class="log-item"
+                                    class:drag-over={dragOverLogId === item.log.id}
+                                    role="treeitem"
+                                    aria-expanded={expandedLogs.has(item.log.id)}
+                                    aria-selected={false}
+                                    tabindex="-1"
+                                    data-log-id={item.log.id}
+                                    style="padding-left: {0.75 + item.depth * 0.85}rem"
                                 >
                                     <button class="log-btn" onclick={() => openLog(item.log)}>
                                     <span class="log-arrow">
@@ -525,65 +525,65 @@
                                     </span>
                                         {#if renamingLogId === item.log.id}
                                             <input
-                                                    class="log-rename-input"
-                                                    bind:value={renamingLogName}
-                                                    onkeydown={handleRenameLogKey}
-                                                    onblur={commitRenameLog}
-                                                    onclick={(e) => e.stopPropagation()}
-                                                    use:focusOnMount
+                                                class="log-rename-input"
+                                                bind:value={renamingLogName}
+                                                onkeydown={handleRenameLogKey}
+                                                onblur={commitRenameLog}
+                                                onclick={(e) => e.stopPropagation()}
+                                                use:focusOnMount
                                             />
                                         {:else}
                                             <span class="log-name">{item.log.name}</span>
                                         {/if}
                                     </button>
                                     <button
-                                            class="action-btn log-action"
-                                            onclick={(e) => startRenameLog(item.log, e)}
-                                            title="Rename"
-                                            tabindex="-1"
+                                        class="action-btn log-action"
+                                        onclick={(e) => startRenameLog(item.log, e)}
+                                        title="Rename"
+                                        tabindex="-1"
                                     >…
                                     </button>
                                     <button
-                                            class="action-btn delete-btn log-action"
-                                            onclick={(e) => deleteLog(item.log.id, e)}
-                                            title="Delete log"
-                                            tabindex="-1"
+                                        class="action-btn delete-btn log-action"
+                                        onclick={(e) => deleteLog(item.log.id, e)}
+                                        title="Delete log"
+                                        tabindex="-1"
                                     >×
                                     </button>
                                 </div>
                             {:else}
                                 <div
-                                        class="log-member-item"
-                                        class:active={activeNodeId === item.node.id}
-                                        class:drag-over={dragOverLogId === item.logId}
-                                        role="option"
-                                        aria-selected={activeNodeId === item.node.id}
-                                        tabindex="-1"
-                                        data-log-id={item.logId}
-                                        style="padding-left: {0.75 + item.depth * 0.85}rem"
+                                    class="log-member-item"
+                                    class:active={activeNodeId === item.node.id}
+                                    class:drag-over={dragOverLogId === item.logId}
+                                    role="option"
+                                    aria-selected={activeNodeId === item.node.id}
+                                    tabindex="-1"
+                                    data-log-id={item.logId}
+                                    style="padding-left: {0.75 + item.depth * 0.85}rem"
                                 >
                                     <button
-                                            class="node-btn"
-                                            onpointerdown={(e) => onNodePointerDown(item.node.id, e)}
-                                            onpointermove={onNodePointerMove}
-                                            onpointerup={() => onNodePointerUp(item.node.id)}
-                                            onpointercancel={onNodePointerCancel}
+                                        class="node-btn"
+                                        onpointerdown={(e) => onNodePointerDown(item.node.id, e)}
+                                        onpointermove={onNodePointerMove}
+                                        onpointerup={() => onNodePointerUp(item.node.id)}
+                                        onpointercancel={onNodePointerCancel}
                                     >
                                         <span class="node-title">{item.node.title}</span>
                                     </button>
                                     <button
-                                            class="action-btn fav-btn"
-                                            class:fav-on={item.node.is_favorite}
-                                            onclick={(e) => toggleFavorite(item.node.id, e)}
-                                            title={item.node.is_favorite ? 'Unfavorite' : 'Favorite'}
-                                            tabindex="-1"
+                                        class="action-btn fav-btn"
+                                        class:fav-on={item.node.is_favorite}
+                                        onclick={(e) => toggleFavorite(item.node.id, e)}
+                                        title={item.node.is_favorite ? 'Unfavorite' : 'Favorite'}
+                                        tabindex="-1"
                                     >★
                                     </button>
                                     <button
-                                            class="action-btn remove-btn"
-                                            onclick={(e) => removeFromLog(item.logId, item.node.id, e)}
-                                            title="Remove from log"
-                                            tabindex="-1"
+                                        class="action-btn remove-btn"
+                                        onclick={(e) => removeFromLog(item.logId, item.node.id, e)}
+                                        title="Remove from log"
+                                        tabindex="-1"
                                     >×
                                     </button>
                                 </div>
@@ -593,12 +593,12 @@
                         {#if creatingLog}
                             <div class="log-item log-create" style="padding-left: 0.75rem">
                                 <input
-                                        class="log-create-input"
-                                        bind:value={newLogName}
-                                        onkeydown={handleNewLogKey}
-                                        onblur={() => { if (!newLogName.trim()) creatingLog = false; }}
-                                        placeholder="Log name…"
-                                        use:focusOnMount
+                                    class="log-create-input"
+                                    bind:value={newLogName}
+                                    onkeydown={handleNewLogKey}
+                                    onblur={() => { if (!newLogName.trim()) creatingLog = false; }}
+                                    placeholder="Log name…"
+                                    use:focusOnMount
                                 />
                             </div>
                         {:else if flatItems.filter(i => i.type === 'log').length === 0}
@@ -620,34 +620,34 @@
                     <div class="panel-body no-scroll">
                         {#each recentNodes as node (node.id)}
                             <div
-                                    class="node-item"
-                                    class:active={activeNodeId === node.id}
-                                    role="option"
-                                    aria-selected={activeNodeId === node.id}
-                                    tabindex="-1"
+                                class="node-item"
+                                class:active={activeNodeId === node.id}
+                                role="option"
+                                aria-selected={activeNodeId === node.id}
+                                tabindex="-1"
                             >
                                 <button
-                                        class="node-btn"
-                                        onpointerdown={(e) => onNodePointerDown(node.id, e)}
-                                        onpointermove={onNodePointerMove}
-                                        onpointerup={() => onNodePointerUp(node.id)}
-                                        onpointercancel={onNodePointerCancel}
+                                    class="node-btn"
+                                    onpointerdown={(e) => onNodePointerDown(node.id, e)}
+                                    onpointermove={onNodePointerMove}
+                                    onpointerup={() => onNodePointerUp(node.id)}
+                                    onpointercancel={onNodePointerCancel}
                                 >
                                     <span class="node-title">{node.title}</span>
                                 </button>
                                 <button
-                                        class="action-btn fav-btn"
-                                        class:fav-on={node.is_favorite}
-                                        onclick={(e) => toggleFavorite(node.id, e)}
-                                        title={node.is_favorite ? 'Unfavorite' : 'Favorite'}
-                                        tabindex="-1"
+                                    class="action-btn fav-btn"
+                                    class:fav-on={node.is_favorite}
+                                    onclick={(e) => toggleFavorite(node.id, e)}
+                                    title={node.is_favorite ? 'Unfavorite' : 'Favorite'}
+                                    tabindex="-1"
                                 >★
                                 </button>
                                 <button
-                                        class="action-btn delete-btn"
-                                        onclick={(e) => deleteNode(node.id, e)}
-                                        title="Delete"
-                                        tabindex="-1"
+                                    class="action-btn delete-btn"
+                                    onclick={(e) => deleteNode(node.id, e)}
+                                    title="Delete"
+                                    tabindex="-1"
                                 >×
                                 </button>
                             </div>
@@ -666,9 +666,9 @@
                 <div class="save-indicator">Saving…</div>
             {/if}
             <Editor
-                    nodeId={activeNodeId}
-                    doc={activeDoc}
-                    onSave={handleSave}
+                nodeId={activeNodeId}
+                doc={activeDoc}
+                onSave={handleSave}
             />
         {:else}
             <div class="empty-state">
@@ -708,7 +708,7 @@
         width: 240px;
         flex-shrink: 0;
         border-right: 1px solid var(--bg-border);
-        background: var(--bg-panel);
+        background: var(--bg-primary);
         display: flex;
         flex-direction: column;
         overflow: hidden;
