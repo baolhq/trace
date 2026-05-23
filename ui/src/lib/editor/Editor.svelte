@@ -1,5 +1,5 @@
 <script lang="ts">
-    import {onMount, onDestroy} from "svelte";
+    import {onMount, onDestroy, untrack} from "svelte";
     import {invoke} from "@tauri-apps/api/core";
     import {Editor} from "@tiptap/core";
     import StarterKit from "@tiptap/starter-kit";
@@ -17,6 +17,9 @@
     }
 
     let {nodeId, doc, onSave}: Props = $props();
+
+    let prevNodeId = untrack(() => nodeId);
+    let isSwapping = false;
 
     let container: HTMLDivElement;
     let editor: Editor | null = null;
@@ -49,7 +52,7 @@
         suggFetchTimer = setTimeout(async () => {
             if (!sugg.active) return;
             if (mode === "wiki") {
-                const results = await invoke<{id: string; title: string}[]>(
+                const results = await invoke<{ id: string; title: string }[]>(
                     "suggest_nodes",
                     {prefix: query},
                 );
@@ -82,7 +85,7 @@
             content: pmDocToTipTap(initialDoc),
         });
         ed.on("update", ({editor: e}) => {
-            scheduleSave();
+            if (!isSwapping) scheduleSave();
             refreshSuggestion(e);
         });
         ed.on("selectionUpdate", ({editor: e}) => {
@@ -104,6 +107,42 @@
         if (!editor) return;
         onSave(editor.getJSON());
     }
+
+    // ── Note switching ────────────────────────────────────────────────────────────
+    $effect(() => {
+        const newId = nodeId; // outside untrack → reactive on nodeId
+        untrack(() => {
+            if (!editor || newId === prevNodeId) return;
+
+            editorLRU.put(prevNodeId, {
+                json: editor.getJSON(),
+                anchor: editor.state.selection.anchor,
+                head: editor.state.selection.head,
+                scrollTop: container?.scrollTop ?? 0,
+            });
+
+            flushSave();
+            prevNodeId = newId;
+            closeSuggestion();
+
+            const cached = editorLRU.get(newId);
+            const content = cached ? cached.json : pmDocToTipTap(doc);
+            isSwapping = true;
+            editor.commands.setContent(content, {emitUpdate: false});
+            isSwapping = false;
+
+            if (cached) {
+                try {
+                    editor.commands.setTextSelection({from: cached.anchor, to: cached.head});
+                } catch {
+                }
+                container.scrollTop = cached.scrollTop;
+            } else {
+                editor.commands.setTextSelection(1);
+                container.scrollTop = 0;
+            }
+        });
+    });
 
     // ── Suggestion logic ──────────────────────────────────────────────────────────
     function refreshSuggestion(ed: Editor) {
@@ -210,7 +249,7 @@
         // Restore cached state if available (warm LRU)
         const cached = editorLRU.get(nodeId);
         if (cached) {
-            editor.commands.setContent(cached.json, false);
+            editor.commands.setContent(cached.json, {emitUpdate: false});
             try {
                 editor.commands.setTextSelection({from: cached.anchor, to: cached.head});
             } catch {

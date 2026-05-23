@@ -25,16 +25,26 @@
     let error = $state("");
     let saving = $state(false);
 
+    let loadGen = 0;
+
     async function loadNodes() {
+        const gen = ++loadGen;
         try {
-            nodes = await invoke("list_nodes");
+            const raw: NodeMeta[] = await invoke("list_nodes");
+            if (gen !== loadGen) return;
+            // Deduplicate by id — guards against any concurrent scan/watcher anomaly.
+            const seen = new Set<string>();
+            nodes = raw.filter(n => !seen.has(n.id) && seen.add(n.id) as unknown as boolean);
         } catch (e) {
-            error = String(e);
+            if (gen === loadGen) error = String(e);
         }
     }
 
     async function openNode(id: string) {
         if (activeId === id) return;
+        // Optimistic reorder: move clicked note to top immediately, no IPC wait.
+        const hit = nodes.find(n => n.id === id);
+        if (hit) nodes = [hit, ...nodes.filter(n => n.id !== id)];
         try {
             const res: OpenNodeResponse = await invoke("open_node", {id});
             activeId = id;
@@ -43,6 +53,7 @@
             error = "";
         } catch (e) {
             error = String(e);
+            loadNodes(); // undo optimistic reorder on failure
         }
     }
 
@@ -152,13 +163,11 @@
             {#if saving}
                 <div class="save-indicator">Saving…</div>
             {/if}
-            {#key activeId}
-                <Editor
-                        nodeId={activeId}
-                        doc={activeDoc}
-                        onSave={handleSave}
-                />
-            {/key}
+            <Editor
+                    nodeId={activeId}
+                    doc={activeDoc}
+                    onSave={handleSave}
+            />
         {:else}
             <div class="empty-state">
                 <p>Select a note or create one to start writing.</p>

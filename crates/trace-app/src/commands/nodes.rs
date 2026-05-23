@@ -1,7 +1,10 @@
 use tauri::State;
 use tracing::{info, warn};
 
-use trace_core::{markdown::{doc::PmDoc, extract_tags}, model::Node};
+use trace_core::{
+    markdown::{doc::PmDoc, extract_tags},
+    model::Node,
+};
 
 use crate::state::AppState;
 
@@ -21,8 +24,14 @@ pub struct OpenNodeResponse {
 #[tauri::command]
 pub fn list_nodes(state: State<'_, AppState>) -> Result<Vec<NodeInfo>, String> {
     let conn = state.db.conn();
+    // Recently-opened notes float to the top; fall back to modified_at for unvisited.
     let mut stmt = conn
-        .prepare("SELECT id, title, created_at FROM nodes ORDER BY modified_at DESC, title")
+        .prepare(
+            "SELECT n.id, n.title, n.created_at
+             FROM nodes n
+             LEFT JOIN recent_nodes rn ON n.id = rn.node_id
+             ORDER BY rn.opened_at DESC NULLS LAST, n.modified_at DESC, n.title",
+        )
         .map_err(|e| e.to_string())?;
 
     let nodes = stmt
@@ -42,8 +51,14 @@ pub fn list_nodes(state: State<'_, AppState>) -> Result<Vec<NodeInfo>, String> {
 
 #[tauri::command]
 pub fn open_node(id: String, state: State<'_, AppState>) -> Result<OpenNodeResponse, String> {
-    let meta = state.node_service.get_meta(&id).map_err(|e| e.to_string())?;
-    let doc = state.node_service.read_doc(&id).map_err(|e| e.to_string())?;
+    let meta = state
+        .node_service
+        .get_meta(&id)
+        .map_err(|e| e.to_string())?;
+    let doc = state
+        .node_service
+        .read_doc(&id)
+        .map_err(|e| e.to_string())?;
     if let Err(e) = state.node_service.record_recent(&id) {
         warn!("record_recent failed for {id}: {e}");
     }
@@ -52,7 +67,10 @@ pub fn open_node(id: String, state: State<'_, AppState>) -> Result<OpenNodeRespo
 
 #[tauri::command]
 pub fn save_node(id: String, doc: PmDoc, state: State<'_, AppState>) -> Result<(), String> {
-    state.node_service.save_doc(&id, &doc).map_err(|e| e.to_string())?;
+    state
+        .node_service
+        .save_doc(&id, &doc)
+        .map_err(|e| e.to_string())?;
     let tags = extract_tags(&doc);
     if let Err(e) = state.tag_service.sync_tags(&id, &tags) {
         warn!("sync_tags failed for {id}: {e}");
@@ -63,7 +81,10 @@ pub fn save_node(id: String, doc: PmDoc, state: State<'_, AppState>) -> Result<(
 
 #[tauri::command]
 pub fn create_node(title: String, state: State<'_, AppState>) -> Result<String, String> {
-    let id = state.node_service.create(&title).map_err(|e| e.to_string())?;
+    let id = state
+        .node_service
+        .create(&title)
+        .map_err(|e| e.to_string())?;
     state.suggest_service.rebuild();
     info!("command: created node {title:?} ({id})");
     Ok(id.to_string())
