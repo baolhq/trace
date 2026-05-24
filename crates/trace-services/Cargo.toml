@@ -10,3 +10,4 @@ rusqlite = { workspace = true }
 serde = { workspace = true }
 tracing = { workspace = true }
 fst = { workspace = true }
+regex = { workspace = true }

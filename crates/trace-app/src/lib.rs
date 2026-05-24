@@ -9,6 +9,7 @@ use crate::commands::logs::{
 use crate::commands::nodes::{
     create_node, delete_node, list_favorites, list_nodes, open_node, save_node, toggle_favorite,
 };
+use crate::commands::search::search_nodes;
 use crate::commands::suggest::{suggest_nodes, suggest_tags};
 use crate::commands::tags::{list_nodes_by_tag, list_tags};
 use crate::commands::window::frontend_ready;
@@ -30,9 +31,10 @@ pub fn run() {
             std::fs::create_dir_all(&app_dir)?;
             let vault_path = app_dir.join("vault");
             let db_path = app_dir.join("metadata.db");
+            let index_path = app_dir.join("index");
             std::fs::create_dir_all(&vault_path)?;
 
-            let state = startup::init(vault_path, db_path, app.handle().clone());
+            let state = startup::init(vault_path, db_path, index_path, app.handle().clone());
             state.mark_backend_ready();
             app.manage(state);
             Ok(())
@@ -62,6 +64,8 @@ pub fn run() {
             // suggest
             suggest_nodes,
             suggest_tags,
+            // search
+            search_nodes,
             // window
             frontend_ready,
         ])

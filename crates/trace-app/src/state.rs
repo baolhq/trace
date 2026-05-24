@@ -9,7 +9,7 @@ use std::{
 use tokio::sync::broadcast;
 use trace_services::{
     events::CoreEvent, log_service::LogService, node_service::NodeService,
-    suggest_service::SuggestService, tag_service::TagService,
+    search_service::SearchService, suggest_service::SuggestService, tag_service::TagService,
 };
 use trace_store::db::Database;
 
@@ -21,6 +21,7 @@ pub struct AppState {
     pub tag_service: TagService,
     pub log_service: LogService,
     pub suggest_service: SuggestService,
+    pub search_service: SearchService,
     backend_ready: AtomicBool,
 }
 
@@ -33,6 +34,7 @@ impl AppState {
         tag_service: TagService,
         log_service: LogService,
         suggest_service: SuggestService,
+        search_service: SearchService,
     ) -> Self {
         Self {
             db,
@@ -42,6 +44,7 @@ impl AppState {
             tag_service,
             log_service,
             suggest_service,
+            search_service,
             backend_ready: AtomicBool::new(false),
         }
     }

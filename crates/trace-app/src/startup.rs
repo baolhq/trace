@@ -4,16 +4,24 @@ use tauri::{AppHandle, Emitter};
 use tokio::sync::{broadcast, mpsc};
 use trace_services::{
     events::CoreEvent, log_service::LogService, node_service::NodeService,
-    suggest_service::SuggestService, tag_service::TagService,
+    search_service::SearchService, suggest_service::SuggestService, tag_service::TagService,
 };
-use trace_store::db::{migrations, Database};
+use trace_store::{
+    db::{migrations, Database},
+    index::SearchIndex,
+};
 use trace_workers::{FileSync, Scanner, Watcher};
-use tracing::{info, instrument};
+use tracing::{info, instrument, warn};
 
 use crate::state::AppState;
 
 #[instrument(skip_all, fields(db = ?db_path))]
-pub fn init(vault_path: PathBuf, db_path: PathBuf, app_handle: AppHandle) -> AppState {
+pub fn init(
+    vault_path: PathBuf,
+    db_path: PathBuf,
+    index_path: PathBuf,
+    app_handle: AppHandle,
+) -> AppState {
     info!("startup: opening database at {:?}", db_path);
     let db = Arc::new(Database::open(&db_path).expect("failed to open database"));
     {
@@ -72,7 +80,17 @@ pub fn init(vault_path: PathBuf, db_path: PathBuf, app_handle: AppHandle) -> App
     let log_service = LogService::new(Arc::clone(&db));
     let suggest_service = SuggestService::new(Arc::clone(&db));
     suggest_service.rebuild();
-    info!("startup: scanner, watcher, file-sync, node-service, tag-service, log-service, and suggest-service ready");
+
+    let search_index =
+        Arc::new(SearchIndex::open_or_create(&index_path).expect("failed to open search index"));
+    let search_service = SearchService::new(
+        Arc::clone(&search_index),
+        Arc::clone(&db),
+        vault_path.clone(),
+    );
+    search_service.build_index();
+
+    info!("startup: all services ready");
 
     AppState::new(
         db,
@@ -82,5 +100,6 @@ pub fn init(vault_path: PathBuf, db_path: PathBuf, app_handle: AppHandle) -> App
         tag_service,
         log_service,
         suggest_service,
+        search_service,
     )
 }

@@ -1,5 +1,6 @@
 pub mod logs;
 pub mod nodes;
+pub mod search;
 pub mod suggest;
 pub mod tags;
 pub mod window;
