@@ -1,22 +1,29 @@
 <script lang="ts">
-    import {onMount, onDestroy, untrack} from "svelte";
-    import {invoke} from "@tauri-apps/api/core";
-    import {Editor} from "@tiptap/core";
+    import { onMount, onDestroy, untrack } from "svelte";
+    import { invoke } from "@tauri-apps/api/core";
+    import { Editor } from "@tiptap/core";
     import StarterKit from "@tiptap/starter-kit";
-    import {Table, TableRow, TableHeader, TableCell} from "@tiptap/extension-table";
+    import {
+        Table,
+        TableRow,
+        TableHeader,
+        TableCell,
+    } from "@tiptap/extension-table";
     import Strike from "@tiptap/extension-strike";
-    import {WikiLink} from "./extensions/WikiLink";
-    import {Tag} from "./extensions/Tag";
-    import {pmDocToTipTap, type PmDoc} from "./doc";
-    import {editorLRU} from "./EditorLRU";
+    import { WikiLink } from "./extensions/WikiLink";
+    import { Tag } from "./extensions/Tag";
+    import { TitleEnforcer } from "./extensions/TitleEnforcer";
+    import { pmDocToTipTap, type PmDoc } from "./doc";
+    import { editorLRU } from "./EditorLRU";
 
     interface Props {
         nodeId: string;
         doc: PmDoc;
-        onSave: (doc: object) => void;
+        onSave: (doc: object, nodeId: string) => void;
+        titleError?: boolean;
     }
 
-    let {nodeId, doc, onSave}: Props = $props();
+    let { nodeId, doc, onSave, titleError = false }: Props = $props();
 
     let prevNodeId = untrack(() => nodeId);
     let isSwapping = false;
@@ -54,12 +61,14 @@
             if (mode === "wiki") {
                 const results = await invoke<{ id: string; title: string }[]>(
                     "suggest_nodes",
-                    {prefix: query},
+                    { prefix: query },
                 );
-                suggItems = results.map((r) => ({label: r.title, id: r.id}));
+                suggItems = results.map((r) => ({ label: r.title, id: r.id }));
             } else {
-                const results = await invoke<string[]>("suggest_tags", {prefix: query});
-                suggItems = results.map((t) => ({label: t}));
+                const results = await invoke<string[]>("suggest_tags", {
+                    prefix: query,
+                });
+                suggItems = results.map((t) => ({ label: t }));
             }
             sugg.index = 0;
         }, 60);
@@ -72,23 +81,24 @@
             extensions: [
                 StarterKit.configure({
                     strike: false,
-                    heading: {levels: [1, 2, 3, 4, 5, 6]},
+                    heading: { levels: [1, 2, 3, 4, 5, 6] },
                 }),
                 Strike,
-                Table.configure({resizable: false}),
+                Table.configure({ resizable: false }),
                 TableRow,
                 TableHeader,
                 TableCell,
                 WikiLink,
                 Tag,
+                TitleEnforcer,
             ],
             content: pmDocToTipTap(initialDoc),
         });
-        ed.on("update", ({editor: e}) => {
+        ed.on("update", ({ editor: e }) => {
             if (!isSwapping) scheduleSave();
             refreshSuggestion(e);
         });
-        ed.on("selectionUpdate", ({editor: e}) => {
+        ed.on("selectionUpdate", ({ editor: e }) => {
             refreshSuggestion(e);
         });
         return ed;
@@ -99,13 +109,13 @@
         saveTimer = setTimeout(flushSave, AUTOSAVE_DELAY);
     }
 
-    function flushSave() {
+    function flushSave(id: string = nodeId) {
         if (saveTimer) {
             clearTimeout(saveTimer);
             saveTimer = null;
         }
         if (!editor) return;
-        onSave(editor.getJSON());
+        onSave(editor.getJSON(), id);
     }
 
     // ── Note switching ────────────────────────────────────────────────────────────
@@ -121,21 +131,23 @@
                 scrollTop: container?.scrollTop ?? 0,
             });
 
-            flushSave();
+            flushSave(prevNodeId);
             prevNodeId = newId;
             closeSuggestion();
 
             const cached = editorLRU.get(newId);
             const content = cached ? cached.json : pmDocToTipTap(doc);
             isSwapping = true;
-            editor.commands.setContent(content, {emitUpdate: false});
+            editor.commands.setContent(content, { emitUpdate: false });
             isSwapping = false;
 
             if (cached) {
                 try {
-                    editor.commands.setTextSelection({from: cached.anchor, to: cached.head});
-                } catch {
-                }
+                    editor.commands.setTextSelection({
+                        from: cached.anchor,
+                        to: cached.head,
+                    });
+                } catch {}
                 container.scrollTop = cached.scrollTop;
             } else {
                 editor.commands.setTextSelection(1);
@@ -146,14 +158,17 @@
 
     // ── Suggestion logic ──────────────────────────────────────────────────────────
     function refreshSuggestion(ed: Editor) {
-        const {selection} = ed.state;
+        const { selection } = ed.state;
         if (!selection.empty) {
             closeSuggestion();
             return;
         }
 
         const anchor = selection.$from;
-        const textBefore = anchor.parent.textContent.slice(0, anchor.parentOffset);
+        const textBefore = anchor.parent.textContent.slice(
+            0,
+            anchor.parentOffset,
+        );
 
         // WikiLink: [[ ... (no closing ]])
         const wikiMatch = textBefore.match(/\[\[([^\]]*)$/);
@@ -177,7 +192,8 @@
         const tagMatch = textBefore.match(/#([\w-]*)$/);
         if (tagMatch) {
             const posBeforeHash = textBefore.length - tagMatch[0].length;
-            const prevChar = posBeforeHash > 0 ? textBefore[posBeforeHash - 1] : "";
+            const prevChar =
+                posBeforeHash > 0 ? textBefore[posBeforeHash - 1] : "";
             if (prevChar === "" || prevChar === " " || prevChar === "\t") {
                 const coords = ed.view.coordsAtPos(anchor.pos);
                 const query = tagMatch[1];
@@ -200,7 +216,7 @@
 
     function closeSuggestion() {
         if (sugg.active) {
-            sugg = {...sugg, active: false};
+            sugg = { ...sugg, active: false };
             suggItems = [];
         }
     }
@@ -210,12 +226,15 @@
         const to = editor.state.selection.$from.pos;
         const content =
             sugg.mode === "wiki"
-                ? {type: "wikiLink", attrs: {target: item.label, isIdRef: false}}
-                : {type: "tag", attrs: {name: item.label}};
+                ? {
+                      type: "wikiLink",
+                      attrs: { target: item.label, isIdRef: false },
+                  }
+                : { type: "tag", attrs: { name: item.label } };
         editor
             .chain()
             .focus()
-            .deleteRange({from: sugg.from, to})
+            .deleteRange({ from: sugg.from, to })
             .insertContentAt(sugg.from, content)
             .run();
         closeSuggestion();
@@ -249,9 +268,12 @@
         // Restore cached state if available (warm LRU)
         const cached = editorLRU.get(nodeId);
         if (cached) {
-            editor.commands.setContent(cached.json, {emitUpdate: false});
+            editor.commands.setContent(cached.json, { emitUpdate: false });
             try {
-                editor.commands.setTextSelection({from: cached.anchor, to: cached.head});
+                editor.commands.setTextSelection({
+                    from: cached.anchor,
+                    to: cached.head,
+                });
             } catch {
                 // Selection may be out of bounds if content changed externally
             }
@@ -272,35 +294,45 @@
             });
         }
         container?.removeEventListener("keydown", onContainerKeydown, true);
-        flushSave();
+        flushSave(nodeId);
         editor?.destroy();
         editor = null;
     });
 </script>
 
 <div class="editor-wrap">
-    <div bind:this={container} class="editor-content"></div>
+    <div
+        bind:this={container}
+        class="editor-content"
+        class:title-error={titleError}
+    ></div>
 </div>
 
 <!-- Suggestion dropdown — rendered at fixed viewport coords of the cursor -->
 {#if sugg.active && suggItems.length > 0}
     <div
-            class="suggestion-popup"
-            style="left: {sugg.left}px; top: {sugg.top}px"
-            role="listbox"
-            aria-label={sugg.mode === "wiki" ? "Note suggestions" : "Tag suggestions"}
+        class="suggestion-popup"
+        style="left: {sugg.left}px; top: {sugg.top}px"
+        role="listbox"
+        aria-label={sugg.mode === "wiki"
+            ? "Note suggestions"
+            : "Tag suggestions"}
     >
         {#each suggItems as item, i (item.label)}
             <!-- onmousedown + preventDefault keeps editor focus when clicking -->
             <button
-                    class="suggestion-item"
-                    class:selected={i === sugg.index}
-                    class:tag-item={sugg.mode === "tag"}
-                    role="option"
-                    aria-selected={i === sugg.index}
-                    onmousedown={(e) => { e.preventDefault(); applySuggestion(item); }}
+                class="suggestion-item"
+                class:selected={i === sugg.index}
+                class:tag-item={sugg.mode === "tag"}
+                role="option"
+                aria-selected={i === sugg.index}
+                onmousedown={(e) => {
+                    e.preventDefault();
+                    applySuggestion(item);
+                }}
             >
-                {#if sugg.mode === "tag"}<span class="tag-prefix">#</span>{/if}{item.label}
+                {#if sugg.mode === "tag"}<span class="tag-prefix">#</span
+                    >{/if}{item.label}
             </button>
         {/each}
     </div>
@@ -332,6 +364,10 @@
         font-size: 1.75rem;
         font-weight: 700;
         margin: 1.5rem 0 0.5rem;
+    }
+
+    .editor-content.title-error :global(.ProseMirror > h1:first-child) {
+        color: var(--fg-error);
     }
 
     .editor-content :global(.ProseMirror h2) {

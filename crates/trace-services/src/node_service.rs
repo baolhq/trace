@@ -174,12 +174,40 @@ impl NodeService {
             return Ok(());
         }
 
-        self.writer().write_node(&meta.path, body)?;
+        let new_title = extract_title(body, &meta.path);
+
+        let target_path = if new_title != meta.title {
+            if new_title.is_empty()
+                || new_title
+                    .chars()
+                    .any(|c| INVALID_TITLE_CHARS.contains(&c) || c.is_control())
+            {
+                return Err(ServiceError::TitleInvalid(
+                    "contains invalid filename characters".into(),
+                ));
+            }
+            let candidate = format!("{new_title}.md");
+            if candidate != meta.path && self.reader().exists(&candidate) {
+                return Err(ServiceError::TitleInvalid(
+                    "a note with this title already exists".into(),
+                ));
+            }
+            candidate
+        } else {
+            meta.path.clone()
+        };
+
+        self.writer().write_node(&target_path, body)?;
+
+        if target_path != meta.path {
+            let _ = self.writer().delete_node(&meta.path);
+            info!("node_service: renamed {:?} -> {:?}", meta.path, target_path);
+        }
 
         let updated = Node {
             id: meta.id.clone(),
-            path: meta.path.clone(),
-            title: extract_title(body, &meta.path),
+            path: target_path,
+            title: new_title,
             created_at: meta.created_at,
             modified_at: now_ms(),
             content_hash: new_hash,

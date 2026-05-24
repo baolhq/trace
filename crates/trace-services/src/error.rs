@@ -2,6 +2,7 @@
 pub enum ServiceError {
     NotFound(String),
     InvalidInput(String),
+    TitleInvalid(String),
     Db(String),
     Io(String),
 }
@@ -11,6 +12,7 @@ impl std::fmt::Display for ServiceError {
         match self {
             Self::NotFound(s) => write!(f, "not found: {s}"),
             Self::InvalidInput(s) => write!(f, "invalid input: {s}"),
+            Self::TitleInvalid(s) => write!(f, "title invalid: {s}"),
             Self::Db(s) => write!(f, "database error: {s}"),
             Self::Io(s) => write!(f, "io error: {s}"),
         }

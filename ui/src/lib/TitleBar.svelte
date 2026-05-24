@@ -59,13 +59,21 @@
             id: "new-note",
             label: "New note",
             available: true,
-            action: () => { closeDropdown(); onNewNote?.(); },
+            action: () => {
+                closeDropdown();
+                onNewNote?.();
+            },
         },
         {
             id: "toggle-favorite",
-            label: activeMeta?.is_favorite ? "Remove from favorites" : "Add to favorites",
+            label: activeMeta?.is_favorite
+                ? "Remove from favorites"
+                : "Add to favorites",
             available: !!activeMeta,
-            action: () => { closeDropdown(); onToggleFavorite(); },
+            action: () => {
+                closeDropdown();
+                onToggleFavorite();
+            },
         },
         {
             id: "settings",
@@ -177,7 +185,9 @@
                     bind:value={query}
                     onkeydown={handleInputKey}
                     onclick={(e) => e.stopPropagation()}
-                    placeholder={dropdownMode === "commands" ? "Run a command…" : "Search notes…"}
+                    placeholder={dropdownMode === "commands"
+                        ? "Run a command…"
+                        : "Search notes…"}
                     autocomplete="off"
                     spellcheck={false}
                 />
@@ -192,7 +202,10 @@
         <button
             class="side-icon cmd-icon"
             class:active={dropdownMode === "commands"}
-            onclick={(e) => { e.stopPropagation(); openDropdown("commands"); }}
+            onclick={(e) => {
+                e.stopPropagation();
+                openDropdown("commands");
+            }}
             title="Command palette"
             tabindex="-1"
         >
@@ -219,7 +232,10 @@
                         {#each filteredNotes as node (node.id)}
                             <button
                                 class="dropdown-item"
-                                onmousedown={(e) => { e.preventDefault(); selectNode(node.id); }}
+                                onmousedown={(e) => {
+                                    e.preventDefault();
+                                    selectNode(node.id);
+                                }}
                             >
                                 <span class="dropdown-title">{node.title}</span>
                             </button>
@@ -235,7 +251,10 @@
                                 class="dropdown-item"
                                 class:cmd-unavailable={!cmd.available}
                                 disabled={!cmd.available}
-                                onmousedown={(e) => { e.preventDefault(); if (cmd.available) cmd.action(); }}
+                                onmousedown={(e) => {
+                                    e.preventDefault();
+                                    if (cmd.available) cmd.action();
+                                }}
                             >
                                 <span class="dropdown-title">{cmd.label}</span>
                                 {#if cmd.hint}
@@ -244,7 +263,9 @@
                             </button>
                         {/each}
                     {:else}
-                        <p class="dropdown-empty">No commands match "{query}"</p>
+                        <p class="dropdown-empty">
+                            No commands match "{query}"
+                        </p>
                     {/if}
                 {/if}
             </div>
@@ -324,7 +345,7 @@
         flex-shrink: 0;
         display: flex;
         align-items: center;
-        background: var(--bg-panel);
+        background: var(--bg-primary);
         border-bottom: 1px solid var(--bg-border);
         user-select: none;
         position: relative;
