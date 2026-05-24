@@ -1,5 +1,6 @@
 /* ── Gruvbox dark palette ── */
 :root {
+    --titlebar-height: 36px;
     /* Background */
     --bg-primary:     #1d2021;
     --bg-panel:       #282828;

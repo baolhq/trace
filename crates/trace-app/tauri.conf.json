@@ -13,9 +13,14 @@
     "windows": [
       {
         "title": "trace",
-        "width": 800,
-        "height": 600,
-        "visible": false
+        "width": 1100,
+        "height": 700,
+        "minWidth": 640,
+        "minHeight": 400,
+        "visible": false,
+        "decorations": false,
+        "shadow": true,
+        "backgroundColor": "#1d2021"
       }
     ],
     "security": {

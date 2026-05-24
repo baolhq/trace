@@ -3,6 +3,7 @@
     import {listen} from "@tauri-apps/api/event";
     import {onDestroy, onMount} from "svelte";
     import Editor from "$lib/editor/Editor.svelte";
+    import TitleBar from "$lib/TitleBar.svelte";
     import {tipTapToPmDoc, type PmDoc} from "$lib/editor/doc";
 
     // ── Types ──────────────────────────────────────────────────────────────
@@ -185,6 +186,16 @@
         }
     }
 
+    async function createUntitledNode() {
+        try {
+            const id = await invoke<string>('create_node', {title: 'Untitled'});
+            await loadRecents();
+            await openNode(id);
+        } catch (e) {
+            error = String(e);
+        }
+    }
+
     async function deleteNode(id: string, e: MouseEvent) {
         e.stopPropagation();
         try {
@@ -206,14 +217,17 @@
         }
     }
 
-    async function toggleFavorite(id: string, e: MouseEvent) {
-        e.stopPropagation();
+    async function toggleFavorite(id: string, e?: MouseEvent) {
+        e?.stopPropagation();
         try {
             const newState = await invoke<boolean>('toggle_favorite', {id});
             await loadFavorites();
             recentNodes = recentNodes.map(n =>
                 n.id === id ? {...n, is_favorite: newState} : n
             );
+            if (activeMeta && activeMeta.id === id) {
+                activeMeta = {...activeMeta, is_favorite: newState};
+            }
             const updated: Record<number, NodeInfo[]> = {};
             for (const [key, members] of Object.entries(logMembersMap)) {
                 updated[Number(key)] = (members as NodeInfo[]).map(n =>
@@ -421,14 +435,19 @@
     onDestroy(() => unlisten?.());
 </script>
 
+<div class="app-root">
+<TitleBar
+    activeMeta={activeMeta}
+    recentNodes={recentNodes}
+    onOpenNode={openNode}
+    onToggleFavorite={() => activeMeta && toggleFavorite(activeMeta.id)}
+    onNewNote={createUntitledNode}
+/>
+
 <div class="shell">
     <!-- ── Sidebar ── -->
     <aside class="sidebar">
         <div class="sidebar-fixed">
-            <div class="sidebar-header">
-                <span class="app-name">Trace</span>
-            </div>
-
             <div class="create-row">
                 <input
                     bind:value={newTitle}
@@ -677,6 +696,7 @@
         {/if}
     </main>
 </div>
+</div>
 
 <!-- Svelte action: focus an element when it mounts -->
 <script lang="ts" module>
@@ -697,9 +717,17 @@
         color: var(--fg-primary);
     }
 
+    .app-root {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        overflow: hidden;
+    }
+
     .shell {
         display: flex;
-        height: 100vh;
+        flex: 1;
+        min-height: 0;
         overflow: hidden;
     }
 
@@ -783,19 +811,6 @@
         overflow: hidden;
         -webkit-mask-image: linear-gradient(to bottom, black 80%, transparent 100%);
         mask-image: linear-gradient(to bottom, black 80%, transparent 100%);
-    }
-
-    .sidebar-header {
-        padding: 1rem 1rem 0.5rem;
-        border-bottom: 1px solid var(--bg-border);
-    }
-
-    .app-name {
-        font-size: 0.85rem;
-        font-weight: 600;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: var(--cursor);
     }
 
     .create-row {

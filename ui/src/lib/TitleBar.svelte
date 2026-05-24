@@ -1,0 +1,598 @@
+<script lang="ts">
+    import { getCurrentWindow } from "@tauri-apps/api/window";
+    import { onMount, onDestroy } from "svelte";
+
+    interface ActiveMeta {
+        id: string;
+        title: string;
+        is_favorite: boolean;
+    }
+
+    interface RecentNode {
+        id: string;
+        title: string;
+    }
+
+    interface Command {
+        id: string;
+        label: string;
+        hint?: string;
+        available: boolean;
+        action: () => void;
+    }
+
+    let {
+        activeMeta = null,
+        recentNodes = [],
+        onOpenNode,
+        onToggleFavorite,
+        onNewNote,
+    }: {
+        activeMeta: ActiveMeta | null;
+        recentNodes: RecentNode[];
+        onOpenNode: (id: string) => void;
+        onToggleFavorite: () => void;
+        onNewNote?: () => void;
+    } = $props();
+
+    const win = getCurrentWindow();
+    let maximized = $state(false);
+    let unlistenResize: (() => void) | undefined;
+
+    type DropdownMode = "closed" | "search" | "commands";
+    let dropdownMode: DropdownMode = $state("closed");
+    let query = $state("");
+    let searchInputEl: HTMLInputElement | null = $state(null);
+
+    const isOpen = $derived(dropdownMode !== "closed");
+
+    const filteredNotes = $derived(
+        query.trim()
+            ? recentNodes.filter((n) =>
+                  n.title.toLowerCase().includes(query.trim().toLowerCase()),
+              )
+            : recentNodes.slice(0, 12),
+    );
+
+    const commands: Command[] = $derived([
+        {
+            id: "new-note",
+            label: "New note",
+            available: true,
+            action: () => { closeDropdown(); onNewNote?.(); },
+        },
+        {
+            id: "toggle-favorite",
+            label: activeMeta?.is_favorite ? "Remove from favorites" : "Add to favorites",
+            available: !!activeMeta,
+            action: () => { closeDropdown(); onToggleFavorite(); },
+        },
+        {
+            id: "settings",
+            label: "Settings",
+            hint: "coming soon",
+            available: false,
+            action: () => {},
+        },
+    ]);
+
+    const filteredCommands = $derived(
+        query.trim()
+            ? commands.filter((c) =>
+                  c.label.toLowerCase().includes(query.trim().toLowerCase()),
+              )
+            : commands,
+    );
+
+    onMount(async () => {
+        maximized = await win.isMaximized();
+        unlistenResize = await win.onResized(async () => {
+            maximized = await win.isMaximized();
+        });
+    });
+
+    onDestroy(() => unlistenResize?.());
+
+    function openDropdown(mode: Exclude<DropdownMode, "closed">) {
+        dropdownMode = mode;
+        query = "";
+        setTimeout(() => searchInputEl?.focus(), 0);
+    }
+
+    function closeDropdown() {
+        dropdownMode = "closed";
+        query = "";
+    }
+
+    function selectNode(id: string) {
+        closeDropdown();
+        onOpenNode(id);
+    }
+
+    function handleInputKey(e: KeyboardEvent) {
+        if (e.key === "Escape") {
+            closeDropdown();
+            e.stopPropagation();
+        }
+    }
+
+    function handleContainerFocusOut(e: FocusEvent) {
+        const related = e.relatedTarget as HTMLElement | null;
+        const current = e.currentTarget as HTMLElement;
+        if (!related || !current.contains(related)) {
+            closeDropdown();
+        }
+    }
+</script>
+
+<div class="titlebar" data-tauri-drag-region>
+    <!-- Left: app label — same fixed width as win-controls to balance the center -->
+    <div class="app-label" data-tauri-drag-region>
+        <span class="app-name">Trace</span>
+    </div>
+
+    <!-- Left flex spacer -->
+    <div class="drag-spacer" data-tauri-drag-region></div>
+
+    <!-- Center compound box -->
+    <div
+        class="center-box"
+        class:open={isOpen}
+        onfocusout={handleContainerFocusOut}
+    >
+        <!-- Favorite icon (fixed width, left) -->
+        <button
+            class="side-icon fav-icon"
+            class:fav-on={!!activeMeta?.is_favorite}
+            onclick={activeMeta ? onToggleFavorite : undefined}
+            disabled={!activeMeta}
+            title={activeMeta?.is_favorite ? "Unfavorite" : "Add to favorites"}
+            tabindex="-1"
+        >
+            <svg
+                viewBox="0 0 16 16"
+                fill={activeMeta?.is_favorite ? "currentColor" : "none"}
+                stroke="currentColor"
+                stroke-width="1.4"
+                stroke-linejoin="round"
+            >
+                <polygon
+                    points="8,1.5 10,5.8 14.5,6.5 11.2,9.7 12,14.2 8,12 4,14.2 4.8,9.7 1.5,6.5 6,5.8"
+                />
+            </svg>
+        </button>
+
+        <!-- Filename / Search (flex center) -->
+        <div
+            class="center-area"
+            role="button"
+            tabindex="0"
+            onclick={() => openDropdown("search")}
+            onkeydown={(e) => e.key === "Enter" && openDropdown("search")}
+        >
+            {#if isOpen}
+                <input
+                    class="search-input"
+                    bind:this={searchInputEl}
+                    bind:value={query}
+                    onkeydown={handleInputKey}
+                    onclick={(e) => e.stopPropagation()}
+                    placeholder={dropdownMode === "commands" ? "Run a command…" : "Search notes…"}
+                    autocomplete="off"
+                    spellcheck={false}
+                />
+            {:else}
+                <span class="filename" class:placeholder={!activeMeta}>
+                    {activeMeta ? activeMeta.title : "Open a note…"}
+                </span>
+            {/if}
+        </div>
+
+        <!-- Command palette icon (fixed width, right) -->
+        <button
+            class="side-icon cmd-icon"
+            class:active={dropdownMode === "commands"}
+            onclick={(e) => { e.stopPropagation(); openDropdown("commands"); }}
+            title="Command palette"
+            tabindex="-1"
+        >
+            <svg
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+            >
+                <circle cx="6.5" cy="6.5" r="3.5" />
+                <line x1="9.5" y1="9.5" x2="13.5" y2="13.5" />
+            </svg>
+        </button>
+
+        <!-- Dropdown -->
+        {#if isOpen}
+            <div class="dropdown">
+                {#if dropdownMode === "search"}
+                    {#if filteredNotes.length > 0}
+                        {#if !query.trim()}
+                            <p class="dropdown-section">Recent</p>
+                        {/if}
+                        {#each filteredNotes as node (node.id)}
+                            <button
+                                class="dropdown-item"
+                                onmousedown={(e) => { e.preventDefault(); selectNode(node.id); }}
+                            >
+                                <span class="dropdown-title">{node.title}</span>
+                            </button>
+                        {/each}
+                    {:else}
+                        <p class="dropdown-empty">No notes match "{query}"</p>
+                    {/if}
+                {:else}
+                    <p class="dropdown-section">Commands</p>
+                    {#if filteredCommands.length > 0}
+                        {#each filteredCommands as cmd (cmd.id)}
+                            <button
+                                class="dropdown-item"
+                                class:cmd-unavailable={!cmd.available}
+                                disabled={!cmd.available}
+                                onmousedown={(e) => { e.preventDefault(); if (cmd.available) cmd.action(); }}
+                            >
+                                <span class="dropdown-title">{cmd.label}</span>
+                                {#if cmd.hint}
+                                    <span class="cmd-hint">{cmd.hint}</span>
+                                {/if}
+                            </button>
+                        {/each}
+                    {:else}
+                        <p class="dropdown-empty">No commands match "{query}"</p>
+                    {/if}
+                {/if}
+            </div>
+        {/if}
+    </div>
+
+    <!-- Right drag area -->
+    <div class="drag-spacer" data-tauri-drag-region></div>
+
+    <!-- Window controls -->
+    <div class="win-controls">
+        <button
+            class="ctrl"
+            onclick={() => win.minimize()}
+            title="Minimize"
+            aria-label="Minimize"
+        >
+            <svg viewBox="0 0 10 1" fill="currentColor" width="10" height="1">
+                <rect width="10" height="1" />
+            </svg>
+        </button>
+        <button
+            class="ctrl"
+            onclick={() => win.toggleMaximize()}
+            title={maximized ? "Restore" : "Maximize"}
+            aria-label={maximized ? "Restore" : "Maximize"}
+        >
+            {#if maximized}
+                <svg
+                    viewBox="0 0 10 10"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1"
+                    width="10"
+                    height="10"
+                >
+                    <rect x="2.5" y="0.5" width="7" height="7" />
+                    <path d="M0.5,2.5 L0.5,9.5 L7.5,9.5 L7.5,7.5" />
+                </svg>
+            {:else}
+                <svg
+                    viewBox="0 0 10 10"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1"
+                    width="10"
+                    height="10"
+                >
+                    <rect x="0.5" y="0.5" width="9" height="9" />
+                </svg>
+            {/if}
+        </button>
+        <button
+            class="ctrl ctrl-close"
+            onclick={() => win.close()}
+            title="Close"
+            aria-label="Close"
+        >
+            <svg
+                viewBox="0 0 10 10"
+                stroke="currentColor"
+                stroke-width="1.2"
+                stroke-linecap="round"
+                width="10"
+                height="10"
+            >
+                <line x1="0.5" y1="0.5" x2="9.5" y2="9.5" />
+                <line x1="9.5" y1="0.5" x2="0.5" y2="9.5" />
+            </svg>
+        </button>
+    </div>
+</div>
+
+<style>
+    .titlebar {
+        height: var(--titlebar-height, 36px);
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        background: var(--bg-panel);
+        border-bottom: 1px solid var(--bg-border);
+        user-select: none;
+        position: relative;
+        z-index: 20;
+    }
+
+    /* Left app label — width must match win-controls (3 × 42px = 126px) */
+    .app-label {
+        width: 126px;
+        flex-shrink: 0;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        padding-left: 14px;
+    }
+
+    .app-name {
+        font-size: 0.72rem;
+        font-weight: 600;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--cursor);
+        pointer-events: none;
+    }
+
+    .drag-spacer {
+        flex: 1;
+        height: 100%;
+        min-width: 0;
+    }
+
+    /* ── Center compound box ── */
+
+    .center-box {
+        position: relative;
+        display: flex;
+        align-items: stretch;
+        width: 400px;
+        flex-shrink: 1;
+        min-width: 200px;
+        height: 24px;
+        background: var(--bg-hover);
+        border: 1px solid transparent;
+        border-radius: 5px;
+        transition:
+            border-color 0.12s,
+            background 0.12s;
+    }
+
+    .center-box:focus-within {
+        border-color: var(--bg-border);
+        background: var(--bg-primary);
+    }
+
+    /* When the dropdown is open, flatten bottom corners and drop the bottom border
+       so the box and dropdown read as one connected surface. */
+    .center-box.open,
+    .center-box.open:focus-within {
+        border-radius: 5px 5px 0 0;
+        border-color: var(--bg-border);
+        background: var(--bg-panel);
+    }
+
+    /* Fixed-width side icon slots */
+    .side-icon {
+        flex-shrink: 0;
+        width: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: none;
+        border: none;
+        padding: 0;
+        cursor: pointer;
+        color: var(--cursor);
+        transition: color 0.1s;
+    }
+
+    .side-icon svg {
+        width: 12px;
+        height: 12px;
+    }
+
+    .side-icon:disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
+    }
+
+    .fav-icon:not(:disabled):hover {
+        color: var(--fg-warning);
+    }
+
+    .fav-icon.fav-on {
+        color: var(--fg-warning);
+    }
+
+    .cmd-icon:hover,
+    .cmd-icon.active {
+        color: var(--fg-muted);
+    }
+
+    /* Vertical dividers between sections */
+    .fav-icon {
+        border-right: 1px solid var(--bg-border);
+        border-radius: 4px 0 0 4px;
+    }
+
+    .cmd-icon {
+        border-left: 1px solid var(--bg-border);
+        border-radius: 0 4px 4px 0;
+    }
+
+    /* Center content */
+    .center-area {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        padding: 0 4px;
+        overflow: hidden;
+    }
+
+    .filename {
+        font-size: 0.8rem;
+        font-weight: 500;
+        color: var(--fg-muted);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        width: 100%;
+        text-align: center;
+        pointer-events: none;
+    }
+
+    .filename.placeholder {
+        color: var(--cursor);
+        font-weight: 400;
+    }
+
+    .search-input {
+        width: 100%;
+        height: 100%;
+        border: none;
+        background: transparent;
+        color: var(--fg-primary);
+        font-size: 0.8rem;
+        font-family: inherit;
+        outline: none;
+        text-align: center;
+        padding: 0;
+        caret-color: var(--fg-interactive);
+    }
+
+    .search-input::placeholder {
+        color: var(--cursor);
+    }
+
+    /* ── Dropdown ── */
+
+    .dropdown {
+        position: absolute;
+        top: calc(100% + 1px);
+        left: -0.5px;
+        right: -1px;
+        background: var(--bg-panel);
+        border: 1px solid var(--bg-border);
+        border-top: none; /* merges flush with center-box — no seam border */
+        border-radius: 0 0 6px 6px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+        overflow: hidden;
+        z-index: 100;
+    }
+
+    .dropdown-section {
+        font-size: 0.65rem;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--cursor);
+        margin: 0;
+        padding: 0.45rem 0.7rem 0.2rem;
+    }
+
+    .dropdown-item {
+        display: flex;
+        align-items: center;
+        width: 100%;
+        text-align: left;
+        background: none;
+        border: none;
+        padding: 0.38rem 0.7rem;
+        cursor: pointer;
+        color: var(--fg-muted);
+        font-family: inherit;
+    }
+
+    .dropdown-item:hover {
+        background: var(--bg-hover);
+        color: var(--fg-primary);
+    }
+
+    .dropdown-title {
+        font-size: 0.83rem;
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .dropdown-empty {
+        font-size: 0.78rem;
+        color: var(--cursor);
+        text-align: center;
+        padding: 0.55rem 0.7rem;
+        margin: 0;
+    }
+
+    .cmd-unavailable {
+        opacity: 0.4;
+        cursor: not-allowed;
+    }
+
+    .cmd-unavailable:hover {
+        background: none;
+        color: var(--fg-muted);
+    }
+
+    .cmd-hint {
+        font-size: 0.7rem;
+        color: var(--cursor);
+        margin-left: 0.5rem;
+        flex-shrink: 0;
+    }
+
+    /* ── Window controls ── */
+
+    .win-controls {
+        width: 126px; /* 3 × 42px — matches .app-label width to keep center box centered */
+        flex-shrink: 0;
+        display: flex;
+        height: 100%;
+        justify-content: flex-end;
+    }
+
+    .ctrl {
+        width: 42px;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: none;
+        border: none;
+        color: var(--cursor);
+        cursor: pointer;
+        transition:
+            background 0.1s,
+            color 0.1s;
+    }
+
+    .ctrl:hover {
+        background: var(--bg-hover);
+        color: var(--fg-muted);
+    }
+
+    .ctrl-close:hover {
+        background: var(--fg-error);
+        color: #fff;
+    }
+</style>
