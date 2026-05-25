@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { invoke } from "@tauri-apps/api/core";
+    import { invoke, Channel } from "@tauri-apps/api/core";
     import { focusOnMount } from "$lib/actions";
     import { notes } from "$lib/stores/notes.svelte";
     import type { SearchHit, SearchSubMode } from "$lib/types";
@@ -15,6 +15,7 @@
     let searchLoading = $state(false);
     let searchError: string | null = $state(null);
 
+    let searchSeq = 0;
     let searchDebounce: ReturnType<typeof setTimeout> | null = null;
 
     $effect(() => {
@@ -26,6 +27,7 @@
         if (!q.trim()) {
             searchResults = [];
             searchError = null;
+            searchLoading = false;
             return;
         }
         searchDebounce = setTimeout(() => runSearch(q, rx, mc, ww), 350);
@@ -37,20 +39,51 @@
         matchCase: boolean,
         wholeWord: boolean,
     ) {
-        searchLoading = true;
+        const mySeq = ++searchSeq;
+        const buffer: SearchHit[] = [];
+
+        searchResults = [];
         searchError = null;
+        searchLoading = true;
+
+        const ch = new Channel<SearchHit>();
+        ch.onmessage = (hit) => {
+            if (searchSeq !== mySeq) return;
+            buffer.push(hit);
+            if (buffer.length >= 20) {
+                searchResults = [...searchResults, ...buffer.splice(0)];
+            }
+        };
+
+        const timer = setInterval(() => {
+            if (searchSeq !== mySeq) {
+                clearInterval(timer);
+                return;
+            }
+            if (buffer.length > 0) {
+                searchResults = [...searchResults, ...buffer.splice(0)];
+            }
+        }, 50);
+
         try {
-            searchResults = await invoke("search_nodes", {
+            await invoke("search_nodes_async", {
                 query: q,
                 isRegex,
                 matchCase,
                 wholeWord,
+                channel: ch,
             });
+            if (searchSeq !== mySeq) return;
+            if (buffer.length > 0) {
+                searchResults = [...searchResults, ...buffer.splice(0)];
+            }
         } catch (e) {
+            if (searchSeq !== mySeq) return;
             searchError = String(e);
             searchResults = [];
         } finally {
-            searchLoading = false;
+            clearInterval(timer);
+            if (searchSeq === mySeq) searchLoading = false;
         }
     }
 

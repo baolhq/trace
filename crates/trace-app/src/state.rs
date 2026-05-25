@@ -1,7 +1,7 @@
 use std::{
     path::PathBuf,
     sync::{
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicU64, Ordering},
         Arc,
     },
 };
@@ -22,6 +22,7 @@ pub struct AppState {
     pub log_service: LogService,
     pub suggest_service: SuggestService,
     pub search_service: SearchService,
+    pub search_epoch: Arc<AtomicU64>,
     backend_ready: AtomicBool,
 }
 
@@ -46,6 +47,7 @@ impl AppState {
             log_service,
             suggest_service,
             search_service,
+            search_epoch: Arc::new(AtomicU64::new(0)),
             backend_ready: AtomicBool::new(false),
         }
     }

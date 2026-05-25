@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { invoke } from "@tauri-apps/api/core";
     import { getCurrentWindow } from "@tauri-apps/api/window";
     import { onMount, onDestroy } from "svelte";
     import StarIcon from "@iconify-svelte/carbon/star";
@@ -42,10 +43,16 @@
     let maximized = $state(false);
     let unlistenResize: (() => void) | undefined;
 
-    type DropdownMode = "closed" | "search" | "commands";
+    type DropdownMode = "closed" | "search" | "commands" | "prompt";
     let dropdownMode: DropdownMode = $state("closed");
     let query = $state("");
     let searchInputEl: HTMLInputElement | null = $state(null);
+
+    let promptStep: 0 | 1 = $state(0);
+    let promptCount = "";
+    let promptVaultPath = $state("");
+    let promptError: string | null = $state(null);
+    let promptBusy = $state(false);
 
     const isOpen = $derived(dropdownMode !== "closed");
 
@@ -85,6 +92,20 @@
             available: false,
             action: () => {},
         },
+        {
+            id: "dev-generate-vault",
+            label: "Developer: Generate vault",
+            available: true,
+            action: async () => {
+                dropdownMode = "prompt";
+                promptStep = 0;
+                promptCount = "";
+                promptError = null;
+                query = "";
+                promptVaultPath = await invoke<string>("vault_path_cmd");
+                setTimeout(() => searchInputEl?.focus(), 0);
+            },
+        },
     ]);
 
     const filteredCommands = $derived(
@@ -123,7 +144,36 @@
     function handleInputKey(e: KeyboardEvent) {
         if (e.key === "Escape") {
             closeDropdown();
+            searchInputEl?.blur();
             e.stopPropagation();
+            return;
+        }
+        if (e.key === "Enter" && dropdownMode === "prompt") {
+            e.preventDefault();
+            e.stopPropagation();
+            handlePromptEnter();
+        }
+    }
+
+    async function handlePromptEnter() {
+        if (promptBusy) return;
+        if (promptStep === 0) {
+            promptCount = query;
+            promptStep = 1;
+            query = "";
+        } else {
+            promptBusy = true;
+            promptError = null;
+            const count = parseInt(promptCount || "100", 10);
+            const dest = query.trim();
+            try {
+                await invoke("gen_vault_cmd", { count, dest });
+                closeDropdown();
+            } catch (e) {
+                promptError = String(e);
+            } finally {
+                promptBusy = false;
+            }
         }
     }
 
@@ -184,7 +234,11 @@
                     onclick={(e) => e.stopPropagation()}
                     placeholder={dropdownMode === "commands"
                         ? "Run a command…"
-                        : "Search notes…"}
+                        : dropdownMode === "prompt"
+                          ? promptStep === 0
+                              ? "Node count (default: 100)"
+                              : "Destination"
+                          : "Search notes…"}
                     autocomplete="off"
                     spellcheck={false}
                 />
@@ -212,7 +266,24 @@
         <!-- Dropdown -->
         {#if isOpen}
             <div class="dropdown">
-                {#if dropdownMode === "search"}
+                {#if dropdownMode === "prompt"}
+                    <p class="dropdown-section">
+                        Generate vault — step {promptStep + 1}/2
+                    </p>
+                    <p class="prompt-desc">
+                        {#if promptStep === 0}
+                            Number of traces to generate
+                        {:else}
+                            Leave empty for {promptVaultPath || "the app vault"}
+                        {/if}
+                    </p>
+                    {#if promptBusy}
+                        <p class="prompt-desc">Generating…</p>
+                    {/if}
+                    {#if promptError}
+                        <p class="prompt-error">{promptError}</p>
+                    {/if}
+                {:else if dropdownMode === "search"}
                     {#if filteredNotes.length > 0}
                         {#if !query.trim()}
                             <p class="dropdown-section">Recent</p>
@@ -559,6 +630,21 @@
         color: var(--cursor);
         margin-left: 0.5rem;
         flex-shrink: 0;
+    }
+
+    .prompt-desc {
+        font-size: 0.78rem;
+        color: var(--cursor);
+        padding: 0.3rem 0.7rem 0.45rem;
+        margin: 0;
+        line-height: 1.4;
+    }
+
+    .prompt-error {
+        font-size: 0.75rem;
+        color: var(--fg-error);
+        padding: 0.3rem 0.7rem;
+        margin: 0;
     }
 
     /* ── Window controls ── */

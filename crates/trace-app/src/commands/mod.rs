@@ -1,3 +1,4 @@
+pub mod generate;
 pub mod logs;
 pub mod nodes;
 pub mod search;

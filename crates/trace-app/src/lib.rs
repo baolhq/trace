@@ -2,6 +2,7 @@ mod commands;
 mod startup;
 mod state;
 
+use crate::commands::generate::{gen_vault_cmd, vault_path_cmd};
 use crate::commands::logs::{
     add_to_log, create_log, delete_log, get_log_members, get_log_tree, remove_from_log, rename_log,
     reorder_in_log, reorder_log,
@@ -9,7 +10,7 @@ use crate::commands::logs::{
 use crate::commands::nodes::{
     create_node, delete_node, list_favorites, list_nodes, open_node, save_node, toggle_favorite,
 };
-use crate::commands::search::search_nodes;
+use crate::commands::search::search_nodes_async;
 use crate::commands::suggest::{suggest_nodes, suggest_tags};
 use crate::commands::tags::{list_nodes_by_tag, list_tags};
 use crate::commands::window::frontend_ready;
@@ -64,7 +65,10 @@ pub fn run() {
             suggest_nodes,
             suggest_tags,
             // search
-            search_nodes,
+            search_nodes_async,
+            // developer
+            vault_path_cmd,
+            gen_vault_cmd,
             // window
             frontend_ready,
         ])

@@ -1,4 +1,10 @@
-use std::{path::PathBuf, sync::Arc};
+use std::{
+    path::PathBuf,
+    sync::{
+        atomic::{AtomicU64, AtomicUsize, Ordering},
+        Arc,
+    },
+};
 
 use rayon::prelude::*;
 use trace_store::{
@@ -33,21 +39,59 @@ impl SearchService {
         if query.trim().is_empty() {
             return Ok(Vec::new());
         }
-        let pattern = if is_regex {
-            if whole_word {
-                format!(r"\b(?:{query})\b")
-            } else {
-                query.to_owned()
-            }
-        } else {
-            let escaped = regex::escape(query);
-            if whole_word {
-                format!(r"\b(?:{escaped})\b")
-            } else {
-                escaped
-            }
-        };
+        let pattern = build_pattern(query, is_regex, whole_word);
         self.search_regex(&pattern, match_case, limit)
+    }
+
+    pub fn search_async(
+        &self,
+        query: &str,
+        is_regex: bool,
+        match_case: bool,
+        whole_word: bool,
+        limit: usize,
+        epoch: u64,
+        current_epoch: Arc<AtomicU64>,
+        on_hit: impl Fn(SearchHit) + Send + Sync,
+    ) -> Result<(), String> {
+        if query.trim().is_empty() {
+            return Ok(());
+        }
+        let pattern = build_pattern(query, is_regex, whole_word);
+        let re = regex::RegexBuilder::new(&pattern)
+            .case_insensitive(!match_case)
+            .build()
+            .map_err(|e| e.to_string())?;
+        let repo = NodesRepo::new(Arc::clone(&self.db));
+        let nodes = repo.list_all_paths().map_err(|e| e.to_string())?;
+        let reader = VaultReader::new(&self.vault_root);
+        let sent = AtomicUsize::new(0);
+
+        nodes.into_par_iter().for_each(|(id, path, title)| {
+            if current_epoch.load(Ordering::Relaxed) != epoch {
+                return;
+            }
+            if sent.load(Ordering::Relaxed) >= limit {
+                return;
+            }
+            let raw = reader.read_node(&path).unwrap_or_default();
+            let content = strip_front(&raw);
+            if let Some(m) = re.find(content) {
+                if sent.fetch_add(1, Ordering::Relaxed) >= limit {
+                    return;
+                }
+                if current_epoch.load(Ordering::Relaxed) != epoch {
+                    return;
+                }
+                on_hit(SearchHit {
+                    id,
+                    title,
+                    snippet: make_snippet(content, m.start(), m.end()),
+                });
+            }
+        });
+
+        Ok(())
     }
 
     fn search_regex(
@@ -78,6 +122,23 @@ impl SearchService {
 
         hits.truncate(limit);
         Ok(hits)
+    }
+}
+
+fn build_pattern(query: &str, is_regex: bool, whole_word: bool) -> String {
+    if is_regex {
+        if whole_word {
+            format!(r"\b(?:{query})\b")
+        } else {
+            query.to_owned()
+        }
+    } else {
+        let escaped = regex::escape(query);
+        if whole_word {
+            format!(r"\b(?:{escaped})\b")
+        } else {
+            escaped
+        }
     }
 }
 
