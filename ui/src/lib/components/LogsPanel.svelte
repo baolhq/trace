@@ -7,6 +7,7 @@
     import { focusOnMount } from "$lib/actions";
     import { notes } from "$lib/stores/notes.svelte";
     import { logs, buildTree, flattenTree } from "$lib/stores/logs.svelte";
+    import { keybindings } from "$lib/keybindings";
 
     const logTree = $derived(buildTree(logs.allLogs, null));
     const flatItems = $derived(
@@ -17,6 +18,8 @@
     let creatingLog = $state(false);
     let renamingLogId: number | null = $state(null);
     let renamingLogName = $state("");
+
+    $effect(() => keybindings.on("log.new-log", () => (creatingLog = true)));
 
     async function createLog() {
         const name = newLogName.trim();

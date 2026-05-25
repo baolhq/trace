@@ -2,6 +2,8 @@
     import TraceIcon from "@iconify-svelte/pajamas/file-tree";
     import SearchIcon from "@iconify-svelte/carbon/search";
     import OutlinesIcon from "@iconify-svelte/lucide/list-tree";
+    import CircleFilledIcon from "@iconify-svelte/carbon/circle-filled";
+    import { keybindings, formatCombo } from "$lib/keybindings";
 
     let {
         sidebarMode,
@@ -38,10 +40,17 @@
             <SearchIcon height="1.5em" />
         </button>
     </div>
+
     <div class="statusbar-section statusbar-right">
-        {#if saving}
-            <span class="status-item">Saving…</span>
+        {#if keybindings.pendingChord}
+            <span class="chord-hint">
+                {formatCombo(keybindings.pendingChord)}...
+            </span>
         {/if}
+        <CircleFilledIcon
+            class="save-dot {saving ? 'saving' : ''}"
+            height="1em"
+        />
     </div>
 </div>
 
@@ -57,10 +66,22 @@
         padding: 0.5rem 0.5rem;
     }
 
+    .chord-hint {
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: var(--cursor);
+        letter-spacing: 0.05em;
+        padding-right: 0.4rem;
+    }
+
     .statusbar-section {
         display: flex;
         align-items: center;
         gap: 0.1rem;
+    }
+
+    .statusbar-right {
+        padding-right: 0.3rem;
     }
 
     .mode-btn {
@@ -85,9 +106,12 @@
         color: var(--fg-interactive);
     }
 
-    .status-item {
-        font-size: 0.7rem;
+    :global(.save-dot) {
+        color: var(--fg-success);
+        flex-shrink: 0;
+    }
+
+    :global(.save-dot.saving) {
         color: var(--cursor);
-        padding: 0 0.25rem;
     }
 </style>

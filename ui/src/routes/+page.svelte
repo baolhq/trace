@@ -11,10 +11,12 @@
     import StatusBar from "$lib/components/StatusBar.svelte";
     import { notes } from "$lib/stores/notes.svelte";
     import { logs } from "$lib/stores/logs.svelte";
+    import { keybindings } from "$lib/keybindings";
 
     let sidebarMode: "notes" | "search" | "outlines" = $state("notes");
 
     let unlisten: (() => void) | undefined;
+    let unregisterKeybindings: (() => void) | undefined;
 
     onMount(async () => {
         await Promise.all([
@@ -27,9 +29,38 @@
             notes.loadRecents();
             notes.loadFavorites();
         });
+
+        const off1 = keybindings.on("app.new-note", () =>
+            notes.createUntitledNode(),
+        );
+        const off2 = keybindings.on(
+            "app.search",
+            () => (sidebarMode = "search"),
+        );
+        const off3 = keybindings.on(
+            "app.sidebar.notes",
+            () => (sidebarMode = "notes"),
+        );
+        const off4 = keybindings.on(
+            "app.sidebar.search",
+            () => (sidebarMode = "search"),
+        );
+        const off5 = keybindings.on("app.focus-editor", () => {
+            document.querySelector<HTMLElement>(".ProseMirror")?.focus();
+        });
+        unregisterKeybindings = () => {
+            off1();
+            off2();
+            off3();
+            off4();
+            off5();
+        };
     });
 
-    onDestroy(() => unlisten?.());
+    onDestroy(() => {
+        unlisten?.();
+        unregisterKeybindings?.();
+    });
 </script>
 
 <div class="app-root">
