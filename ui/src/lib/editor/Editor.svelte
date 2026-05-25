@@ -13,6 +13,8 @@
     import { WikiLink } from "./extensions/WikiLink";
     import { Tag } from "./extensions/Tag";
     import { TitleEnforcer } from "./extensions/TitleEnforcer";
+    import { FindReplace, getFindReplaceState } from "./extensions/FindReplace";
+    import FindBar from "$lib/components/FindBar.svelte";
     import { pmDocToTipTap, type PmDoc } from "./doc";
     import { editorLRU } from "./EditorLRU";
 
@@ -21,9 +23,26 @@
         doc: PmDoc;
         onSave: (doc: object, nodeId: string) => void;
         titleError?: boolean;
+        findBarOpen?: boolean;
+        findShowReplace?: boolean;
     }
 
-    let { nodeId, doc, onSave, titleError = false }: Props = $props();
+    let {
+        nodeId,
+        doc,
+        onSave,
+        titleError = false,
+        findBarOpen = $bindable(false),
+        findShowReplace = $bindable(false),
+    }: Props = $props();
+
+    let searchTerm = $state("");
+    let replaceTerm = $state("");
+    let matchCount = $state(0);
+    let findCurrentIndex = $state(0);
+    let matchCase = $state(false);
+    let wholeWord = $state(false);
+    let useRegex = $state(false);
 
     let prevNodeId = untrack(() => nodeId);
     let isSwapping = false;
@@ -91,6 +110,7 @@
                 WikiLink,
                 Tag,
                 TitleEnforcer,
+                FindReplace,
             ],
             content: pmDocToTipTap(initialDoc),
         });
@@ -101,7 +121,50 @@
         ed.on("selectionUpdate", ({ editor: e }) => {
             refreshSuggestion(e);
         });
+        ed.on("transaction", ({ editor: e }) => {
+            const ps = getFindReplaceState(e.state);
+            matchCount = ps.matches.length;
+            findCurrentIndex = ps.currentIndex;
+        });
         return ed;
+    }
+
+    // ── Find bar handlers ─────────────────────────────────────────────────────────
+    function execSearch(term: string) {
+        editor?.commands.setSearchTerm(term, {
+            matchCase,
+            wholeWord,
+            useRegex,
+        });
+    }
+
+    function handleSearchChange(term: string) {
+        searchTerm = term;
+        execSearch(term);
+    }
+
+    function handleMatchCaseToggle() {
+        matchCase = !matchCase;
+        if (searchTerm) execSearch(searchTerm);
+    }
+
+    function handleWholeWordToggle() {
+        wholeWord = !wholeWord;
+        if (searchTerm) execSearch(searchTerm);
+    }
+
+    function handleUseRegexToggle() {
+        useRegex = !useRegex;
+        if (searchTerm) execSearch(searchTerm);
+    }
+
+    function handleClose() {
+        findBarOpen = false;
+        searchTerm = "";
+        replaceTerm = "";
+        matchCount = 0;
+        findCurrentIndex = 0;
+        editor?.commands.setSearchTerm("");
     }
 
     function scheduleSave() {
@@ -300,12 +363,37 @@
     });
 </script>
 
-<div class="editor-wrap">
-    <div
-        bind:this={container}
-        class="editor-content"
-        class:title-error={titleError}
-    ></div>
+<div class="editor-outer">
+    {#if findBarOpen}
+        <FindBar
+            {searchTerm}
+            {replaceTerm}
+            {matchCount}
+            {matchCase}
+            {wholeWord}
+            {useRegex}
+            showReplace={findShowReplace}
+            currentIndex={findCurrentIndex}
+            onSearchChange={handleSearchChange}
+            onReplaceChange={(v) => (replaceTerm = v)}
+            onMatchCaseToggle={handleMatchCaseToggle}
+            onWholeWordToggle={handleWholeWordToggle}
+            onUseRegexToggle={handleUseRegexToggle}
+            onToggleReplace={() => (findShowReplace = !findShowReplace)}
+            onNext={() => editor?.commands.findNext()}
+            onPrev={() => editor?.commands.findPrev()}
+            onReplace={() => editor?.commands.replaceOne(replaceTerm)}
+            onReplaceAll={() => editor?.commands.replaceAll(replaceTerm)}
+            onClose={handleClose}
+        />
+    {/if}
+    <div class="editor-wrap">
+        <div
+            bind:this={container}
+            class="editor-content"
+            class:title-error={titleError}
+        ></div>
+    </div>
 </div>
 
 <!-- Suggestion dropdown — rendered at fixed viewport coords of the cursor -->
@@ -339,6 +427,12 @@
 {/if}
 
 <style>
+    .editor-outer {
+        position: relative;
+        width: 100%;
+        height: 100%;
+    }
+
     .editor-wrap {
         width: 100%;
         height: 100%;
@@ -467,6 +561,18 @@
     .editor-content :global(.ProseMirror th) {
         background: var(--bg-panel);
         font-weight: 600;
+    }
+
+    /* ── Find/replace highlights ── */
+    .editor-content :global(.find-match) {
+        background: rgba(215, 153, 33, 0.25);
+        border-radius: 2px;
+    }
+
+    .editor-content :global(.find-current) {
+        background: rgba(215, 153, 33, 0.6);
+        border-radius: 2px;
+        outline: 1px solid #d79921;
     }
 
     /* ── Suggestion dropdown ── */

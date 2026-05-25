@@ -14,6 +14,8 @@
     import { keybindings } from "$lib/keybindings";
 
     let sidebarMode: "notes" | "search" | "outlines" = $state("notes");
+    let findBarOpen = $state(false);
+    let findShowReplace = $state(false);
 
     let unlisten: (() => void) | undefined;
     let unregisterKeybindings: (() => void) | undefined;
@@ -48,12 +50,26 @@
         const off5 = keybindings.on("app.focus-editor", () => {
             document.querySelector<HTMLElement>(".ProseMirror")?.focus();
         });
+        const off6 = keybindings.on("editor.find", () => {
+            if (notes.viewMode?.kind === "editor") {
+                findBarOpen = true;
+                findShowReplace = false;
+            }
+        });
+        const off7 = keybindings.on("editor.replace", () => {
+            if (notes.viewMode?.kind === "editor") {
+                findBarOpen = true;
+                findShowReplace = true;
+            }
+        });
         unregisterKeybindings = () => {
             off1();
             off2();
             off3();
             off4();
             off5();
+            off6();
+            off7();
         };
     });
 
@@ -98,6 +114,8 @@
                     onSave={(ttJson, nodeId) =>
                         notes.handleSave(ttJson, nodeId)}
                     titleError={notes.titleError}
+                    bind:findBarOpen
+                    bind:findShowReplace
                 />
             {:else}
                 <div class="empty-state">

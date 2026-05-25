@@ -12,6 +12,16 @@ export const DEFAULT_PROFILE: KeybindingEntry[] = [
     description: "Open search panel",
   },
   {
+    id: "editor.find",
+    combo: { key: "f", ctrl: true },
+    description: "Find in current note",
+  },
+  {
+    id: "editor.replace",
+    combo: { key: "h", ctrl: true },
+    description: "Find and replace in current note",
+  },
+  {
     id: "app.sidebar.notes",
     combo: { key: "1", ctrl: true },
     description: "Switch sidebar to notes view",
