@@ -157,7 +157,7 @@
     }
 
     .search-tab.active {
-        color: var(--fg-interactive);
+        color: var(--fg-muted);
         border-bottom-color: var(--bg-primary);
     }
 

@@ -1,5 +1,8 @@
 <script lang="ts">
     import Panel from "./Panel.svelte";
+    import StarIcon from "@iconify-svelte/carbon/star";
+    import StarFilledIcon from "@iconify-svelte/carbon/star-filled";
+    import CloseIcon from "@iconify-svelte/carbon/close";
     import { invoke } from "@tauri-apps/api/core";
     import { focusOnMount } from "$lib/actions";
     import { notes } from "$lib/stores/notes.svelte";
@@ -147,9 +150,8 @@
                     class="action-btn delete-btn log-action"
                     onclick={(e) => deleteLog(item.log.id, e)}
                     title="Delete log"
-                    tabindex="-1"
-                    >×
-                </button>
+                    tabindex="-1"><CloseIcon height="1em" /></button
+                >
             </div>
         {:else}
             <div
@@ -178,15 +180,18 @@
                     onclick={(e) => notes.toggleFavorite(item.node.id, e)}
                     title={item.node.is_favorite ? "Unfavorite" : "Favorite"}
                     tabindex="-1"
-                    >★
+                >
+                    {#if item.node.is_favorite}
+                        <StarFilledIcon height="1em" />
+                    {:else}<StarIcon height="1em" />
+                    {/if}
                 </button>
                 <button
                     class="action-btn remove-btn"
                     onclick={(e) => removeFromLog(item.logId, item.node.id, e)}
                     title="Remove from log"
-                    tabindex="-1"
-                    >×
-                </button>
+                    tabindex="-1"><CloseIcon height="1em" /></button
+                >
             </div>
         {/if}
     {/each}
@@ -391,11 +396,10 @@
 
     .fav-btn.fav-on {
         opacity: 1;
-        color: var(--fg-warning);
     }
 
     .fav-btn:hover {
-        color: var(--fg-warning) !important;
+        color: var(--fg-muted);
     }
 
     .delete-btn:hover {

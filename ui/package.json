@@ -12,6 +12,9 @@
   },
   "license": "MIT",
   "dependencies": {
+    "@iconify-svelte/carbon": "^1.0.10",
+    "@iconify-svelte/lucide": "^1.0.41",
+    "@iconify-svelte/pajamas": "^1.0.2",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-opener": "^2",
     "@tiptap/core": "^3.23.6",

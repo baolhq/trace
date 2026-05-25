@@ -1,6 +1,9 @@
 <script lang="ts">
     import { getCurrentWindow } from "@tauri-apps/api/window";
     import { onMount, onDestroy } from "svelte";
+    import StarIcon from "@iconify-svelte/carbon/star";
+    import StarFilledIcon from "@iconify-svelte/carbon/star-filled";
+    import MacCommandIcon from "@iconify-svelte/carbon/mac-command";
 
     interface ActiveMeta {
         id: string;
@@ -157,17 +160,11 @@
             title={activeMeta?.is_favorite ? "Unfavorite" : "Add to favorites"}
             tabindex="-1"
         >
-            <svg
-                viewBox="0 0 16 16"
-                fill={activeMeta?.is_favorite ? "currentColor" : "none"}
-                stroke="currentColor"
-                stroke-width="1.4"
-                stroke-linejoin="round"
-            >
-                <polygon
-                    points="8,1.5 10,5.8 14.5,6.5 11.2,9.7 12,14.2 8,12 4,14.2 4.8,9.7 1.5,6.5 6,5.8"
-                />
-            </svg>
+            {#if activeMeta?.is_favorite}
+                <StarFilledIcon height="1em" />
+            {:else}
+                <StarIcon height="1em" />
+            {/if}
         </button>
 
         <!-- Filename / Search (flex center) -->
@@ -209,16 +206,7 @@
             title="Command palette"
             tabindex="-1"
         >
-            <svg
-                viewBox="0 0 16 16"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.5"
-                stroke-linecap="round"
-            >
-                <circle cx="6.5" cy="6.5" r="3.5" />
-                <line x1="9.5" y1="9.5" x2="13.5" y2="13.5" />
-            </svg>
+            <MacCommandIcon height="1em" />
         </button>
 
         <!-- Dropdown -->
@@ -424,22 +412,13 @@
         transition: color 0.1s;
     }
 
-    .side-icon svg {
-        width: 12px;
-        height: 12px;
-    }
-
     .side-icon:disabled {
         opacity: 0.3;
         cursor: not-allowed;
     }
 
     .fav-icon:not(:disabled):hover {
-        color: var(--fg-warning);
-    }
-
-    .fav-icon.fav-on {
-        color: var(--fg-warning);
+        color: var(--fg-muted);
     }
 
     .cmd-icon:hover,

@@ -12,7 +12,7 @@
     import { notes } from "$lib/stores/notes.svelte";
     import { logs } from "$lib/stores/logs.svelte";
 
-    let sidebarMode: "notes" | "search" = $state("notes");
+    let sidebarMode: "notes" | "search" | "outlines" = $state("notes");
 
     let unlisten: (() => void) | undefined;
 

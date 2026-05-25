@@ -14,6 +14,15 @@ importers:
 
   ui:
     dependencies:
+      '@iconify-svelte/carbon':
+        specifier: ^1.0.10
+        version: 1.0.10(svelte@5.55.9)
+      '@iconify-svelte/lucide':
+        specifier: ^1.0.41
+        version: 1.0.41(svelte@5.55.9)
+      '@iconify-svelte/pajamas':
+        specifier: ^1.0.2
+        version: 1.0.2(svelte@5.55.9)
       '@tauri-apps/api':
         specifier: ^2
         version: 2.11.0
@@ -218,6 +227,23 @@ packages:
     engines: {node: '>=18'}
     cpu: [x64]
     os: [win32]
+
+  '@iconify-svelte/carbon@1.0.10':
+    resolution: {integrity: sha512-fCWdrJ9fJjdhtO9lPZK7iHTU5vk+WELuqws0Q2rjkidq/K/g+SGDgQlINr2j5gDF+YRxvxkou3G4Tvsk6g2Zxg==}
+
+  '@iconify-svelte/lucide@1.0.41':
+    resolution: {integrity: sha512-7+/ryJHtErxVUqLvFZj/obgY9k8Jyajed6PuQ6mHsH+iNAJWXP5EhbziooL4eXHHrQF+WdIm2P9Akf7CbEG+jg==}
+
+  '@iconify-svelte/pajamas@1.0.2':
+    resolution: {integrity: sha512-VFMrLNU9f2TuEloncNzMFNoyXkHmMJBnyzBfBZ4IXoUw5YtylLD6y8hUiz9/DWeIat3T7WyeBGP0TzfmqC0ycg==}
+
+  '@iconify/css-svelte@1.0.1':
+    resolution: {integrity: sha512-f9w1anXXBm48VjDEWDrGTybdiwnDTIChcUpBK/UtXR/AhNp/Co/VPp00t7dO93j+4Je0OwMKyc/HvI7Lpv3PKg==}
+    peerDependencies:
+      svelte: '>4.0.0'
+
+  '@iconify/types@2.0.0':
+    resolution: {integrity: sha512-+wluvCrRhXrhyOmRDJ3q8mux9JkKy5SJ/v8ol2tu4FVjyYvtEzkc/3pK15ET6RKg4b4w4BmTk1+gsCUhf21Ykg==}
 
   '@jridgewell/gen-mapping@0.3.13':
     resolution: {integrity: sha512-2kkt/7niJ6MgEPxF0bYdQ6etZaA+fQvDcLKckhy1yIQOzaoKjBBjSj63/aLVjYE3qhRt5dvM+uUyfCg6UKCBbA==}
@@ -990,6 +1016,31 @@ snapshots:
 
   '@esbuild/win32-x64@0.25.12':
     optional: true
+
+  '@iconify-svelte/carbon@1.0.10(svelte@5.55.9)':
+    dependencies:
+      '@iconify/css-svelte': 1.0.1(svelte@5.55.9)
+    transitivePeerDependencies:
+      - svelte
+
+  '@iconify-svelte/lucide@1.0.41(svelte@5.55.9)':
+    dependencies:
+      '@iconify/css-svelte': 1.0.1(svelte@5.55.9)
+    transitivePeerDependencies:
+      - svelte
+
+  '@iconify-svelte/pajamas@1.0.2(svelte@5.55.9)':
+    dependencies:
+      '@iconify/css-svelte': 1.0.1(svelte@5.55.9)
+    transitivePeerDependencies:
+      - svelte
+
+  '@iconify/css-svelte@1.0.1(svelte@5.55.9)':
+    dependencies:
+      '@iconify/types': 2.0.0
+      svelte: 5.55.9
+
+  '@iconify/types@2.0.0': {}
 
   '@jridgewell/gen-mapping@0.3.13':
     dependencies:

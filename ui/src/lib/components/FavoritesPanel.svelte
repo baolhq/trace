@@ -1,5 +1,7 @@
 <script lang="ts">
     import Panel from "./Panel.svelte";
+    import StarFilledIcon from "@iconify-svelte/carbon/star-filled";
+    import CloseIcon from "@iconify-svelte/carbon/close";
     import { notes } from "$lib/stores/notes.svelte";
     import { logs } from "$lib/stores/logs.svelte";
 </script>
@@ -23,18 +25,20 @@
                 <span class="node-title">{node.title}</span>
             </button>
             <button
-                class="action-btn fav-btn fav-on"
+                class="action-btn fav-btn"
                 onclick={(e) => notes.toggleFavorite(node.id, e)}
                 title="Unfavorite"
                 tabindex="-1"
-                >★
+            >
+                <StarFilledIcon height="1em" />
             </button>
             <button
                 class="action-btn delete-btn"
                 onclick={(e) => notes.deleteNode(node.id, e)}
                 title="Delete"
                 tabindex="-1"
-                >×
+            >
+                <CloseIcon height="1em" />
             </button>
         </div>
     {/each}
@@ -103,13 +107,8 @@
         opacity: 1;
     }
 
-    .fav-btn.fav-on {
-        opacity: 1;
-        color: var(--fg-warning);
-    }
-
     .fav-btn:hover {
-        color: var(--fg-warning) !important;
+        color: var(--fg-muted);
     }
 
     .delete-btn:hover {
