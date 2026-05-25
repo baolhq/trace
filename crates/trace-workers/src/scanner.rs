@@ -1,6 +1,6 @@
 use std::{collections::HashSet, path::PathBuf, sync::Arc};
 
-use tokio::sync::{broadcast, mpsc};
+use tokio::sync::broadcast;
 use tracing::{debug, info, warn};
 use walkdir::WalkDir;
 
@@ -18,8 +18,6 @@ pub struct Scanner {
     vault_path: PathBuf,
     db: Arc<Database>,
     tag_service: TagService,
-    /// Sends relative paths of changed/new .md files to the indexer pipeline.
-    tx: mpsc::Sender<String>,
     event_tx: broadcast::Sender<CoreEvent>,
 }
 
@@ -28,10 +26,14 @@ impl Scanner {
         vault_path: PathBuf,
         db: Arc<Database>,
         tag_service: TagService,
-        tx: mpsc::Sender<String>,
         event_tx: broadcast::Sender<CoreEvent>,
     ) -> Self {
-        Self { vault_path, db, tag_service, tx, event_tx }
+        Self {
+            vault_path,
+            db,
+            tag_service,
+            event_tx,
+        }
     }
 
     pub async fn run(&self) {
@@ -66,9 +68,9 @@ impl Scanner {
 
             let stored = self.db.get_content_hash(&rel);
             if stored.is_none() {
-                self.insert_node(&rel, &bytes, &hash, mtime_ms);
-                changed += 1;
-                let _ = self.tx.send(rel).await;
+                if self.insert_node(&rel, &bytes, &hash, mtime_ms).is_some() {
+                    changed += 1;
+                }
             } else if stored.as_deref() != Some(hash.as_str()) {
                 debug!("scanner: changed: {rel}");
                 changed += 1;
@@ -89,7 +91,6 @@ impl Scanner {
                         warn!("scanner: sync_tags failed for {rel}: {e}");
                     }
                 }
-                let _ = self.tx.send(rel).await;
             }
         }
 
@@ -111,13 +112,14 @@ impl Scanner {
 
         for path in &orphans {
             let conn = self.db.conn();
-            match conn.execute("DELETE FROM nodes WHERE path=?1", rusqlite::params![path]) {
-                Ok(n) if n > 0 => info!("scanner: removed orphaned node: {path}"),
-                _ => {}
+            let deleted = conn
+                .execute("DELETE FROM nodes WHERE path=?1", rusqlite::params![path])
+                .map_or(0, |n| n);
+            if deleted > 0 {
+                info!("scanner: removed orphaned node: {path}");
             }
         }
 
-        // Checkpoint last_scan_ts so cold-start skips unchanged files next time.
         {
             let conn = self.db.conn();
             let _ = conn.execute(
@@ -133,7 +135,7 @@ impl Scanner {
         let _ = self.event_tx.send(CoreEvent::ScanComplete);
     }
 
-    fn insert_node(&self, rel: &str, bytes: &[u8], hash: &str, mtime_ms: i64) {
+    fn insert_node(&self, rel: &str, bytes: &[u8], hash: &str, mtime_ms: i64) -> Option<String> {
         let content = std::str::from_utf8(bytes).unwrap_or("");
         let title = extract_title(content, rel);
         let id = NodeId::generate();
@@ -161,6 +163,9 @@ impl Scanner {
             if let Err(e) = self.tag_service.sync_tags(id.as_str(), &tags) {
                 warn!("scanner: sync_tags failed for {rel}: {e}");
             }
+            Some(id.to_string())
+        } else {
+            None
         }
     }
 }

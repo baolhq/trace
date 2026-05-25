@@ -31,10 +31,9 @@ pub fn run() {
             std::fs::create_dir_all(&app_dir)?;
             let vault_path = app_dir.join("vault");
             let db_path = app_dir.join("metadata.db");
-            let index_path = app_dir.join("index");
             std::fs::create_dir_all(&vault_path)?;
 
-            let state = startup::init(vault_path, db_path, index_path, app.handle().clone());
+            let state = startup::init(vault_path, db_path, app.handle().clone());
             state.mark_backend_ready();
             app.manage(state);
             Ok(())

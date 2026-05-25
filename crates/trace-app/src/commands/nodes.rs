@@ -50,9 +50,6 @@ pub fn save_node(id: String, doc: PmDoc, state: State<'_, AppState>) -> Result<(
         warn!("sync_tags failed for {id}: {e}");
     }
     state.suggest_service.rebuild();
-    if let Err(e) = state.search_service.index_from_vault(&id) {
-        warn!("search index update failed for {id}: {e}");
-    }
     Ok(())
 }
 

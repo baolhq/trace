@@ -133,58 +133,6 @@ impl NodesRepo {
         Ok(rows)
     }
 
-    /// Returns (id, path, title, modified_at, tags_str) for every node.
-    /// `tags_str` is space-joined tag names for Tantivy indexing.
-    pub fn list_all_for_index(
-        &self,
-    ) -> Result<Vec<(String, String, String, i64, String)>, rusqlite::Error> {
-        let conn = self.db.conn();
-        let mut stmt = conn.prepare(
-            "SELECT n.id, n.path, n.title, n.modified_at,
-                    COALESCE(GROUP_CONCAT(t.name, ' '), '') AS tags_str
-             FROM nodes n
-             LEFT JOIN node_tags nt ON nt.node_id = n.id
-             LEFT JOIN tags t ON t.id = nt.tag_id
-             GROUP BY n.id
-             ORDER BY n.modified_at DESC",
-        )?;
-        let rows = stmt
-            .query_map([], |row| {
-                Ok((
-                    row.get(0)?,
-                    row.get(1)?,
-                    row.get(2)?,
-                    row.get(3)?,
-                    row.get(4)?,
-                ))
-            })?
-            .collect::<Result<Vec<_>, _>>()?;
-        Ok(rows)
-    }
-
-    /// Returns (path, title, modified_at, tags_str) for one node.
-    pub fn get_for_index(
-        &self,
-        id: &str,
-    ) -> Result<Option<(String, String, i64, String)>, rusqlite::Error> {
-        let conn = self.db.conn();
-        match conn.query_row(
-            "SELECT n.path, n.title, n.modified_at,
-                    COALESCE(GROUP_CONCAT(t.name, ' '), '') AS tags_str
-             FROM nodes n
-             LEFT JOIN node_tags nt ON nt.node_id = n.id
-             LEFT JOIN tags t ON t.id = nt.tag_id
-             WHERE n.id = ?1
-             GROUP BY n.id",
-            rusqlite::params![id],
-            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
-        ) {
-            Ok(v) => Ok(Some(v)),
-            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-            Err(e) => Err(e),
-        }
-    }
-
     pub fn list_recent_opened(&self, limit: usize) -> Result<Vec<Node>, rusqlite::Error> {
         let conn = self.db.conn();
         let mut stmt = conn.prepare(

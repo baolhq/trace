@@ -1,6 +1,5 @@
 pub mod file_sync;
 pub mod git;
-pub mod indexer;
 pub mod link_extractor;
 pub mod scanner;
 mod util;

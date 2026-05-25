@@ -26,6 +26,7 @@ pub struct AppState {
 }
 
 impl AppState {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         db: Arc<Database>,
         vault_path: PathBuf,
