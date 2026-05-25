@@ -7,6 +7,8 @@
     let searchSubMode: SearchSubMode = $state("search");
     let searchQuery = $state("");
     let replaceQuery = $state("");
+    let searchMatchCase = $state(false);
+    let searchWholeWord = $state(false);
     let searchRegex = $state(false);
     let searchResults: SearchHit[] = $state([]);
     let searchLoading = $state(false);
@@ -18,21 +20,30 @@
         if (searchDebounce) clearTimeout(searchDebounce);
         const q = searchQuery;
         const rx = searchRegex;
+        const mc = searchMatchCase;
+        const ww = searchWholeWord;
         if (!q.trim()) {
             searchResults = [];
             searchError = null;
             return;
         }
-        searchDebounce = setTimeout(() => runSearch(q, rx), 350);
+        searchDebounce = setTimeout(() => runSearch(q, rx, mc, ww), 350);
     });
 
-    async function runSearch(q: string, isRegex: boolean) {
+    async function runSearch(
+        q: string,
+        isRegex: boolean,
+        matchCase: boolean,
+        wholeWord: boolean,
+    ) {
         searchLoading = true;
         searchError = null;
         try {
             searchResults = await invoke("search_nodes", {
                 query: q,
                 isRegex,
+                matchCase,
+                wholeWord,
             });
         } catch (e) {
             searchError = String(e);
@@ -43,7 +54,13 @@
     }
 
     function handleSearchKey(e: KeyboardEvent) {
-        if (e.key === "Enter") runSearch(searchQuery, searchRegex);
+        if (e.key === "Enter")
+            runSearch(
+                searchQuery,
+                searchRegex,
+                searchMatchCase,
+                searchWholeWord,
+            );
     }
 </script>
 
@@ -61,7 +78,11 @@
         >
     </div>
 
-    <div class="search-input-row">
+    <div
+        class="search-input-row"
+        class:error={!!searchError}
+        data-error={searchError ?? undefined}
+    >
         <input
             class="search-input"
             bind:value={searchQuery}
@@ -71,10 +92,20 @@
         />
         <button
             class="search-opt-btn"
+            class:active={searchMatchCase}
+            onclick={() => (searchMatchCase = !searchMatchCase)}
+            title="Match case">Aa</button
+        >
+        <button
+            class="search-opt-btn"
+            class:active={searchWholeWord}
+            onclick={() => (searchWholeWord = !searchWholeWord)}
+            title="Match whole word">ab</button
+        >
+        <button
+            class="search-opt-btn"
             class:active={searchRegex}
-            onclick={() => {
-                searchRegex = !searchRegex;
-            }}
+            onclick={() => (searchRegex = !searchRegex)}
             title="Use regular expression">.*</button
         >
     </div>
@@ -92,9 +123,7 @@
     <div class="search-results">
         {#if searchLoading}
             <p class="search-status">Searching…</p>
-        {:else if searchError}
-            <p class="search-status search-error">{searchError}</p>
-        {:else if searchResults.length === 0 && searchQuery.trim()}
+        {:else if searchResults.length === 0 && searchQuery.trim() && !searchError}
             <p class="search-status">No results</p>
         {:else}
             {#each searchResults as hit (hit.id)}
@@ -168,6 +197,29 @@
         padding: 0.4rem 0.5rem;
         border-bottom: 1px solid var(--bg-border);
         flex-shrink: 0;
+        position: relative;
+    }
+
+    .search-input-row.error .search-input {
+        border-color: var(--fg-error);
+    }
+
+    .search-input-row.error:hover::after {
+        content: attr(data-error);
+        position: absolute;
+        top: calc(100% + 2px);
+        left: 0;
+        right: 0;
+        background: var(--bg-primary);
+        border: 1px solid var(--fg-error);
+        border-radius: 3px;
+        padding: 0.3rem 0.5rem;
+        font-size: 0.73rem;
+        color: var(--fg-error);
+        z-index: 20;
+        white-space: pre-wrap;
+        word-break: break-all;
+        pointer-events: none;
     }
 
     .search-input {
@@ -229,10 +281,6 @@
         font-size: 0.78rem;
         color: var(--cursor);
         margin: 0;
-    }
-
-    .search-error {
-        color: var(--fg-error);
     }
 
     .search-hit {

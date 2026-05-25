@@ -14,11 +14,13 @@ pub struct SearchHitDto {
 pub fn search_nodes(
     query: String,
     is_regex: bool,
+    match_case: bool,
+    whole_word: bool,
     state: State<'_, AppState>,
 ) -> Result<Vec<SearchHitDto>, String> {
     state
         .search_service
-        .search(&query, is_regex, 50)
+        .search(&query, is_regex, match_case, whole_word, 50)
         .map(|hits| {
             hits.into_iter()
                 .map(|h| SearchHitDto {

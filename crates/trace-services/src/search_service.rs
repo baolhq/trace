@@ -1,6 +1,5 @@
 use std::{path::PathBuf, sync::Arc};
 
-use regex::Regex;
 use trace_store::{
     db::{nodes_repo::NodesRepo, Database},
     index::SearchIndex,
@@ -69,13 +68,28 @@ impl SearchService {
         &self,
         query: &str,
         is_regex: bool,
+        match_case: bool,
+        whole_word: bool,
         limit: usize,
     ) -> Result<Vec<SearchHit>, String> {
         if query.trim().is_empty() {
             return Ok(Vec::new());
         }
         if is_regex {
-            self.search_regex(query, limit)
+            let pattern = if whole_word {
+                format!(r"\b(?:{})\b", query)
+            } else {
+                query.to_owned()
+            };
+            self.search_regex(&pattern, match_case, limit)
+        } else if match_case || whole_word {
+            let escaped = regex::escape(query);
+            let pattern = if whole_word {
+                format!(r"\b(?:{})\b", escaped)
+            } else {
+                escaped
+            };
+            self.search_regex(&pattern, match_case, limit)
         } else {
             Ok(self.search_text(query, limit))
         }
@@ -100,8 +114,16 @@ impl SearchService {
     }
 
     /// Regex scan across all vault files. Returns matches with highlighted snippets.
-    fn search_regex(&self, pattern: &str, limit: usize) -> Result<Vec<SearchHit>, String> {
-        let re = Regex::new(pattern).map_err(|e| e.to_string())?;
+    fn search_regex(
+        &self,
+        pattern: &str,
+        match_case: bool,
+        limit: usize,
+    ) -> Result<Vec<SearchHit>, String> {
+        let re = regex::RegexBuilder::new(pattern)
+            .case_insensitive(!match_case)
+            .build()
+            .map_err(|e| e.to_string())?;
         let repo = NodesRepo::new(Arc::clone(&self.db));
         let nodes = repo.list_all_paths().map_err(|e| e.to_string())?;
         let reader = VaultReader::new(&self.vault_root);
