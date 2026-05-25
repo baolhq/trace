@@ -3,6 +3,7 @@
     import { focusOnMount } from "$lib/actions";
     import { notes } from "$lib/stores/notes.svelte";
     import type { SearchHit, SearchSubMode } from "$lib/types";
+    import Tooltip from "$lib/components/Tooltip.svelte";
 
     let searchSubMode: SearchSubMode = $state("search");
     let searchQuery = $state("");
@@ -78,18 +79,16 @@
         >
     </div>
 
-    <div
-        class="search-input-row"
-        class:error={!!searchError}
-        data-error={searchError ?? undefined}
-    >
-        <input
-            class="search-input"
-            bind:value={searchQuery}
-            placeholder="Search notes…"
-            onkeydown={handleSearchKey}
-            use:focusOnMount
-        />
+    <div class="search-input-row" class:error={!!searchError}>
+        <Tooltip description={searchError ?? ""}>
+            <input
+                class="search-input"
+                bind:value={searchQuery}
+                placeholder="Search notes…"
+                onkeydown={handleSearchKey}
+                use:focusOnMount
+            />
+        </Tooltip>
         <button
             class="search-opt-btn"
             class:active={searchMatchCase}
@@ -204,26 +203,13 @@
         border-color: var(--fg-error);
     }
 
-    .search-input-row.error:hover::after {
-        content: attr(data-error);
-        position: absolute;
-        top: calc(100% + 2px);
-        left: 0;
-        right: 0;
-        background: var(--bg-primary);
-        border: 1px solid var(--fg-error);
-        border-radius: 3px;
-        padding: 0.3rem 0.5rem;
-        font-size: 0.73rem;
-        color: var(--fg-error);
-        z-index: 20;
-        white-space: pre-wrap;
-        word-break: break-all;
-        pointer-events: none;
+    .search-input-row :global(.tooltip-root) {
+        flex: 1;
+        min-width: 0;
     }
 
     .search-input {
-        flex: 1;
+        width: 100%;
         background: var(--bg-hover);
         border: 1px solid transparent;
         border-radius: 3px;
