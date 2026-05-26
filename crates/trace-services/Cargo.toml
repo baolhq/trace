@@ -4,11 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-trace-core = { path = "../trace-core" }
-trace-store = { path = "../trace-store" }
+rayon = { workspace = true }
+regex = { workspace = true }
 rusqlite = { workspace = true }
 serde = { workspace = true }
+trace-core = { path = "../trace-core" }
+trace-store = { path = "../trace-store" }
 tracing = { workspace = true }
-fst = { workspace = true }
-regex = { workspace = true }
-rayon = { workspace = true }

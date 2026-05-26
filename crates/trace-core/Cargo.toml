@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-serde = { workspace = true }
-rand = { workspace = true }
-xxhash-rust = { workspace = true }
-regex = { workspace = true }
 pulldown-cmark = { workspace = true }
+rand = { workspace = true }
+regex = { workspace = true }
+serde = { workspace = true }
+xxhash-rust = { workspace = true }

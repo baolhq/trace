@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-trace-core = { path = "../trace-core" }
-rusqlite = { workspace = true }
-tracing = { workspace = true }
 lru = "0.12"
+rusqlite = { workspace = true }
+trace-core = { path = "../trace-core" }
+tracing = { workspace = true }

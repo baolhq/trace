@@ -142,7 +142,6 @@
         index: 0,
     });
 
-    // FST-backed suggestions fetched from backend
     let suggItems: SuggItem[] = $state([]);
     let suggFetchTimer: ReturnType<typeof setTimeout> | null = null;
 

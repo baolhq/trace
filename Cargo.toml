@@ -9,17 +9,16 @@ members = [
 ]
 
 [workspace.dependencies]
+notify = "6"
+notify-debouncer-mini = "0.4"
+pulldown-cmark = "0.12"
+rand = "0.8"
+rayon = "1"
+regex = "1"
+rusqlite = { version = "0.31", features = ["bundled"] }
 serde = { version = "1", features = ["derive"] }
 tokio = { version = "1", features = ["full"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-rand = "0.8"
-xxhash-rust = { version = "0.8", features = ["xxh3"] }
-rusqlite = { version = "0.31", features = ["bundled"] }
-notify = "6"
-notify-debouncer-mini = "0.4"
 walkdir = "2"
-regex = "1"
-pulldown-cmark = "0.12"
-fst = "0.4"
-rayon = "1"
+xxhash-rust = { version = "0.8", features = ["xxh3"] }
