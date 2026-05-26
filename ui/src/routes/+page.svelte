@@ -10,6 +10,7 @@
     import SearchPanel from "$lib/components/SearchPanel.svelte";
     import RightPanel from "$lib/components/RightPanel.svelte";
     import StatusBar from "$lib/components/StatusBar.svelte";
+    import ContextMenu from "$lib/components/ContextMenu.svelte";
     import { notes } from "$lib/stores/notes.svelte";
     import { logs } from "$lib/stores/logs.svelte";
     import { keybindings } from "$lib/keybindings";
@@ -74,7 +75,11 @@
     });
 </script>
 
-<div class="app-root">
+<div
+    class="app-root"
+    role="application"
+    oncontextmenu={(e) => e.preventDefault()}
+>
     <TitleBar
         activeMeta={notes.activeMeta}
         recentNodes={notes.recentNodes}
@@ -161,6 +166,8 @@
         saving={notes.saving}
     />
 </div>
+
+<ContextMenu />
 
 <style>
     :global(*, *::before, *::after) {

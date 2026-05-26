@@ -3,11 +3,16 @@
     import StarIcon from "@iconify-svelte/carbon/star";
     import StarFilledIcon from "@iconify-svelte/carbon/star-filled";
     import CloseIcon from "@iconify-svelte/carbon/close";
+    import DocumentIcon from "@iconify-svelte/carbon/document";
+    import TrashIcon from "@iconify-svelte/carbon/trash-can";
+    import EditIcon from "@iconify-svelte/carbon/edit";
+    import SubtractIcon from "@iconify-svelte/carbon/subtract-alt";
     import { invoke } from "@tauri-apps/api/core";
     import { focusOnMount } from "$lib/actions";
     import { notes } from "$lib/stores/notes.svelte";
     import { logs, buildTree, flattenTree } from "$lib/stores/logs.svelte";
     import { keybindings } from "$lib/keybindings";
+    import { contextMenu } from "$lib/stores/contextMenu.svelte";
 
     const logTree = $derived(buildTree(logs.allLogs, null));
     const flatItems = $derived(
@@ -100,6 +105,13 @@
     }
 </script>
 
+{#snippet iconOpen()}<DocumentIcon height="1em" />{/snippet}
+{#snippet iconFav()}<StarIcon height="1em" />{/snippet}
+{#snippet iconUnfav()}<StarFilledIcon height="1em" />{/snippet}
+{#snippet iconEdit()}<EditIcon height="1em" />{/snippet}
+{#snippet iconRemove()}<SubtractIcon height="1em" />{/snippet}
+{#snippet iconDelete()}<TrashIcon height="1em" />{/snippet}
+
 <Panel title="Logs">
     {#snippet actions()}
         <button
@@ -124,6 +136,29 @@
                 tabindex="-1"
                 data-log-id={item.log.id}
                 style="padding-left: {0.75 + item.depth * 0.85}rem"
+                oncontextmenu={(e) => {
+                    e.preventDefault();
+                    contextMenu.open(e.clientX, e.clientY, [
+                        {
+                            kind: "action",
+                            label: "Rename",
+                            icon: iconEdit,
+                            action: () => {
+                                renamingLogId = item.log.id;
+                                renamingLogName = item.log.name;
+                            },
+                        },
+                        { kind: "separator" },
+                        {
+                            kind: "action",
+                            label: "Delete",
+                            icon: iconDelete,
+                            danger: true,
+                            action: () =>
+                                deleteLog(item.log.id, new MouseEvent("click")),
+                        },
+                    ]);
+                }}
             >
                 <button class="log-btn" onclick={() => logs.openLog(item.log)}>
                     <span class="log-arrow">
@@ -166,6 +201,49 @@
                 tabindex="-1"
                 data-log-id={item.logId}
                 style="padding-left: {0.75 + item.depth * 0.85}rem"
+                oncontextmenu={(e) => {
+                    e.preventDefault();
+                    contextMenu.open(e.clientX, e.clientY, [
+                        {
+                            kind: "action",
+                            label: "Open",
+                            icon: iconOpen,
+                            action: () => notes.openNode(item.node.id),
+                        },
+                        { kind: "separator" },
+                        {
+                            kind: "action",
+                            label: item.node.is_favorite
+                                ? "Unfavorite"
+                                : "Favorite",
+                            icon: item.node.is_favorite ? iconUnfav : iconFav,
+                            action: () => notes.toggleFavorite(item.node.id),
+                        },
+                        { kind: "separator" },
+                        {
+                            kind: "action",
+                            label: "Remove from log",
+                            icon: iconRemove,
+                            action: () =>
+                                removeFromLog(
+                                    item.logId,
+                                    item.node.id,
+                                    new MouseEvent("click"),
+                                ),
+                        },
+                        {
+                            kind: "action",
+                            label: "Delete",
+                            icon: iconDelete,
+                            danger: true,
+                            action: () =>
+                                notes.deleteNode(
+                                    item.node.id,
+                                    new MouseEvent("click"),
+                                ),
+                        },
+                    ]);
+                }}
             >
                 <button
                     class="node-btn"

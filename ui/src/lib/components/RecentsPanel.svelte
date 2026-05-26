@@ -3,9 +3,17 @@
     import StarIcon from "@iconify-svelte/carbon/star";
     import StarFilledIcon from "@iconify-svelte/carbon/star-filled";
     import CloseIcon from "@iconify-svelte/carbon/close";
+    import DocumentIcon from "@iconify-svelte/carbon/document";
+    import TrashIcon from "@iconify-svelte/carbon/trash-can";
     import { notes } from "$lib/stores/notes.svelte";
     import { logs } from "$lib/stores/logs.svelte";
+    import { contextMenu } from "$lib/stores/contextMenu.svelte";
 </script>
+
+{#snippet iconOpen()}<DocumentIcon height="1em" />{/snippet}
+{#snippet iconFav()}<StarIcon height="1em" />{/snippet}
+{#snippet iconUnfav()}<StarFilledIcon height="1em" />{/snippet}
+{#snippet iconDelete()}<TrashIcon height="1em" />{/snippet}
 
 <Panel title="Recents" noScroll>
     {#each notes.recentNodes as node (node.id)}
@@ -15,6 +23,33 @@
             role="option"
             aria-selected={notes.activeNodeId === node.id}
             tabindex="-1"
+            oncontextmenu={(e) => {
+                e.preventDefault();
+                contextMenu.open(e.clientX, e.clientY, [
+                    {
+                        kind: "action",
+                        label: "Open",
+                        icon: iconOpen,
+                        action: () => notes.openNode(node.id),
+                    },
+                    { kind: "separator" },
+                    {
+                        kind: "action",
+                        label: node.is_favorite ? "Unfavorite" : "Favorite",
+                        icon: node.is_favorite ? iconUnfav : iconFav,
+                        action: () => notes.toggleFavorite(node.id),
+                    },
+                    { kind: "separator" },
+                    {
+                        kind: "action",
+                        label: "Delete",
+                        icon: iconDelete,
+                        danger: true,
+                        action: () =>
+                            notes.deleteNode(node.id, new MouseEvent("click")),
+                    },
+                ]);
+            }}
         >
             <button
                 class="node-btn"

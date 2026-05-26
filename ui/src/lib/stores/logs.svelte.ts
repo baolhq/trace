@@ -129,6 +129,7 @@ class LogsStore {
   }
 
   async onNodePointerUp(id: string) {
+    if (this.#ptrDragId === null) return;
     const wasDragging = this.#ptrDragging;
     const targetLogId = this.dragOverLogId;
     this.#ptrDragId = null;
