@@ -16,6 +16,8 @@
     let sidebarMode: "notes" | "search" | "outlines" = $state("notes");
     let findBarOpen = $state(false);
     let findShowReplace = $state(false);
+    let fileSearchPing = $state(0);
+    let commandPalettePing = $state(0);
 
     let unlisten: (() => void) | undefined;
     let unregisterKeybindings: (() => void) | undefined;
@@ -32,45 +34,33 @@
             notes.loadFavorites();
         });
 
-        const off1 = keybindings.on("app.new-note", () =>
-            notes.createUntitledNode(),
-        );
-        const off2 = keybindings.on(
-            "app.search",
-            () => (sidebarMode = "search"),
-        );
-        const off3 = keybindings.on(
-            "app.sidebar.notes",
-            () => (sidebarMode = "notes"),
-        );
-        const off4 = keybindings.on(
-            "app.sidebar.search",
-            () => (sidebarMode = "search"),
-        );
-        const off5 = keybindings.on("app.focus-editor", () => {
-            document.querySelector<HTMLElement>(".ProseMirror")?.focus();
-        });
-        const off6 = keybindings.on("editor.find", () => {
-            if (notes.viewMode?.kind === "editor") {
-                findBarOpen = true;
-                findShowReplace = false;
-            }
-        });
-        const off7 = keybindings.on("editor.replace", () => {
-            if (notes.viewMode?.kind === "editor") {
-                findBarOpen = true;
-                findShowReplace = true;
-            }
-        });
-        unregisterKeybindings = () => {
-            off1();
-            off2();
-            off3();
-            off4();
-            off5();
-            off6();
-            off7();
-        };
+        const offs = [
+            keybindings.on("app.new-note", () => notes.createUntitledNode()),
+            keybindings.on("app.search", () => (sidebarMode = "search")),
+            keybindings.on("app.sidebar.notes", () => (sidebarMode = "notes")),
+            keybindings.on(
+                "app.sidebar.search",
+                () => (sidebarMode = "search"),
+            ),
+            keybindings.on("app.focus-editor", () => {
+                document.querySelector<HTMLElement>(".ProseMirror")?.focus();
+            }),
+            keybindings.on("editor.find", () => {
+                if (notes.viewMode?.kind === "editor") {
+                    findBarOpen = true;
+                    findShowReplace = false;
+                }
+            }),
+            keybindings.on("editor.replace", () => {
+                if (notes.viewMode?.kind === "editor") {
+                    findBarOpen = true;
+                    findShowReplace = true;
+                }
+            }),
+            keybindings.on("app.file-search", () => fileSearchPing++),
+            keybindings.on("app.command-palette", () => commandPalettePing++),
+        ];
+        unregisterKeybindings = () => offs.forEach((off) => off());
     });
 
     onDestroy(() => {
@@ -87,6 +77,8 @@
         onToggleFavorite={() =>
             notes.activeMeta && notes.toggleFavorite(notes.activeMeta.id)}
         onNewNote={() => notes.createUntitledNode()}
+        {fileSearchPing}
+        {commandPalettePing}
     />
 
     <div class="shell">
@@ -113,7 +105,11 @@
                     doc={notes.activeDoc}
                     onSave={(ttJson, nodeId) =>
                         notes.handleSave(ttJson, nodeId)}
-                    titleError={notes.titleError}
+                    title={notes.activeMeta?.title ?? ""}
+                    onRename={async (t) => {
+                        if (notes.activeMeta)
+                            await notes.renameNode(notes.activeMeta.id, t);
+                    }}
                     bind:findBarOpen
                     bind:findShowReplace
                 />

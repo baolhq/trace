@@ -31,13 +31,25 @@
         onOpenNode,
         onToggleFavorite,
         onNewNote,
+        fileSearchPing = 0,
+        commandPalettePing = 0,
     }: {
         activeMeta: ActiveMeta | null;
         recentNodes: RecentNode[];
         onOpenNode: (id: string) => void;
         onToggleFavorite: () => void;
         onNewNote?: () => void;
+        fileSearchPing?: number;
+        commandPalettePing?: number;
     } = $props();
+
+    $effect(() => {
+        if (fileSearchPing > 0) openDropdown("search");
+    });
+
+    $effect(() => {
+        if (commandPalettePing > 0) openDropdown("commands");
+    });
 
     const win = getCurrentWindow();
     let maximized = $state(false);
@@ -127,8 +139,11 @@
 
     function openDropdown(mode: Exclude<DropdownMode, "closed">) {
         dropdownMode = mode;
-        query = "";
-        setTimeout(() => searchInputEl?.focus(), 0);
+        query = mode === "search" ? (activeMeta?.title ?? "") : "";
+        setTimeout(() => {
+            searchInputEl?.focus();
+            if (mode === "search") searchInputEl?.select();
+        }, 0);
     }
 
     function closeDropdown() {
@@ -523,7 +538,7 @@
     .filename {
         font-size: 0.8rem;
         font-weight: 500;
-        color: var(--fg-muted);
+        color: var(--cursor);
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;

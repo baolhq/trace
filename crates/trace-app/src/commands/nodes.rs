@@ -65,6 +65,17 @@ pub fn create_node(title: String, state: State<'_, AppState>) -> Result<String, 
 }
 
 #[tauri::command]
+pub fn rename_node(id: String, title: String, state: State<'_, AppState>) -> Result<(), String> {
+    state
+        .node_service
+        .rename(&id, &title)
+        .map_err(|e| e.to_string())?;
+    state.suggest_service.rebuild();
+    info!("command: renamed node {id} to {title:?}");
+    Ok(())
+}
+
+#[tauri::command]
 pub fn delete_node(id: String, state: State<'_, AppState>) -> Result<(), String> {
     state.node_service.delete(&id).map_err(|e| e.to_string())?;
     state.suggest_service.rebuild();

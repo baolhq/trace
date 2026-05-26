@@ -7,7 +7,7 @@ use walkdir::WalkDir;
 use trace_core::{
     hash::hash_content,
     id::NodeId,
-    markdown::{extract_tags, extract_title, parse::parse},
+    markdown::{extract_tags, parse::parse, title_from_path},
 };
 use trace_services::{events::CoreEvent, tag_service::TagService};
 use trace_store::db::Database;
@@ -137,7 +137,7 @@ impl Scanner {
 
     fn insert_node(&self, rel: &str, bytes: &[u8], hash: &str, mtime_ms: i64) -> Option<String> {
         let content = std::str::from_utf8(bytes).unwrap_or("");
-        let title = extract_title(content, rel);
+        let title = title_from_path(rel);
         let id = NodeId::generate();
         let inserted = {
             let conn = self.db.conn();

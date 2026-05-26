@@ -11,7 +11,6 @@ use trace_core::{
     id::NodeId,
     markdown::{
         doc::PmDoc,
-        extract_title,
         parse::{parse, parse_with_spans},
         serialize::{serialize, serialize_block_to_string},
     },
@@ -66,7 +65,7 @@ impl NodeService {
             )));
         }
 
-        let content = format!("# {title}\n");
+        let content = String::new();
         let bytes = content.as_bytes();
         let hash = hash_content(bytes);
         let id = NodeId::generate();
@@ -174,40 +173,12 @@ impl NodeService {
             return Ok(());
         }
 
-        let new_title = extract_title(body, &meta.path);
-
-        let target_path = if new_title != meta.title {
-            if new_title.is_empty()
-                || new_title
-                    .chars()
-                    .any(|c| INVALID_TITLE_CHARS.contains(&c) || c.is_control())
-            {
-                return Err(ServiceError::TitleInvalid(
-                    "contains invalid filename characters".into(),
-                ));
-            }
-            let candidate = format!("{new_title}.md");
-            if candidate != meta.path && self.reader().exists(&candidate) {
-                return Err(ServiceError::TitleInvalid(
-                    "a note with this title already exists".into(),
-                ));
-            }
-            candidate
-        } else {
-            meta.path.clone()
-        };
-
-        self.writer().write_node(&target_path, body)?;
-
-        if target_path != meta.path {
-            let _ = self.writer().delete_node(&meta.path);
-            info!("node_service: renamed {:?} -> {:?}", meta.path, target_path);
-        }
+        self.writer().write_node(&meta.path, body)?;
 
         let updated = Node {
             id: meta.id.clone(),
-            path: target_path,
-            title: new_title,
+            path: meta.path.clone(),
+            title: meta.title.clone(),
             created_at: meta.created_at,
             modified_at: now_ms(),
             content_hash: new_hash,
@@ -220,6 +191,45 @@ impl NodeService {
         self.cache.lock().unwrap().insert(updated);
 
         info!("node_service: saved {id}");
+        Ok(())
+    }
+
+    pub fn rename(&self, id: &str, new_title: &str) -> Result<(), ServiceError> {
+        let new_title = new_title.trim();
+        validate_title(new_title)?;
+
+        let meta = self.get_meta(id)?;
+        if new_title == meta.title {
+            return Ok(());
+        }
+
+        let new_path = format!("{new_title}.md");
+        if self.reader().exists(&new_path) {
+            return Err(ServiceError::TitleInvalid(
+                "a note with this title already exists".into(),
+            ));
+        }
+
+        let body = self.reader().read_node(&meta.path)?;
+        self.writer().write_node(&new_path, &body)?;
+        let _ = self.writer().delete_node(&meta.path);
+
+        let updated = Node {
+            id: meta.id.clone(),
+            path: new_path.clone(),
+            title: new_title.to_string(),
+            created_at: meta.created_at,
+            modified_at: now_ms(),
+            content_hash: meta.content_hash,
+            byte_size: meta.byte_size,
+            is_favorite: meta.is_favorite,
+        };
+        self.repo()
+            .upsert(&updated)
+            .map_err(|e| ServiceError::Db(e.to_string()))?;
+        self.cache.lock().unwrap().insert(updated);
+
+        info!("node_service: renamed {:?} -> {:?}", meta.path, new_path);
         Ok(())
     }
 

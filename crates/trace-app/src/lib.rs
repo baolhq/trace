@@ -8,7 +8,8 @@ use crate::commands::logs::{
     reorder_in_log, reorder_log,
 };
 use crate::commands::nodes::{
-    create_node, delete_node, list_favorites, list_nodes, open_node, save_node, toggle_favorite,
+    create_node, delete_node, list_favorites, list_nodes, open_node, rename_node, save_node,
+    toggle_favorite,
 };
 use crate::commands::search::search_nodes_async;
 use crate::commands::suggest::{suggest_nodes, suggest_tags};
@@ -45,6 +46,7 @@ pub fn run() {
             open_node,
             save_node,
             create_node,
+            rename_node,
             delete_node,
             toggle_favorite,
             list_favorites,

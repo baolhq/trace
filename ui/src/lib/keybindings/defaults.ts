@@ -7,6 +7,16 @@ export const DEFAULT_PROFILE: KeybindingEntry[] = [
     description: "Create a new note",
   },
   {
+    id: "app.file-search",
+    combo: { key: "p", ctrl: true },
+    description: "Open file search",
+  },
+  {
+    id: "app.command-palette",
+    combo: { key: "p", ctrl: true, shift: true },
+    description: "Open command palette",
+  },
+  {
     id: "app.search",
     combo: { key: "f", ctrl: true, shift: true },
     description: "Open search panel",

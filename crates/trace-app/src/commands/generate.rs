@@ -35,9 +35,6 @@ pub fn gen_vault_cmd(count: usize, dest: String, state: State<'_, AppState>) -> 
         let mut f =
             std::fs::File::create(path.join(format!("{title}.md"))).map_err(|e| e.to_string())?;
 
-        writeln!(f, "# {title}").map_err(|e| e.to_string())?;
-        writeln!(f).map_err(|e| e.to_string())?;
-
         for _ in 0..rng.gen_range(2..=5usize) {
             let words: Vec<&str> = (0..rng.gen_range(6..=14usize))
                 .map(|_| WORDS[rng.gen_range(0..WORDS.len())])

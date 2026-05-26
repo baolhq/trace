@@ -12,7 +12,6 @@
     import Strike from "@tiptap/extension-strike";
     import { WikiLink } from "./extensions/WikiLink";
     import { Tag } from "./extensions/Tag";
-    import { TitleEnforcer } from "./extensions/TitleEnforcer";
     import { FindReplace, getFindReplaceState } from "./extensions/FindReplace";
     import FindBar from "$lib/components/FindBar.svelte";
     import { pmDocToTipTap, type PmDoc } from "./doc";
@@ -22,7 +21,8 @@
         nodeId: string;
         doc: PmDoc;
         onSave: (doc: object, nodeId: string) => void;
-        titleError?: boolean;
+        title: string;
+        onRename: (newTitle: string) => Promise<void>;
         findBarOpen?: boolean;
         findShowReplace?: boolean;
     }
@@ -31,10 +31,47 @@
         nodeId,
         doc,
         onSave,
-        titleError = false,
+        title,
+        onRename,
         findBarOpen = $bindable(false),
         findShowReplace = $bindable(false),
     }: Props = $props();
+
+    // ── Virtualized title ─────────────────────────────────────────────────────
+    let titleDraft = $state(untrack(() => title));
+    let titleEditError = $state("");
+
+    $effect(() => {
+        titleDraft = title;
+        titleEditError = "";
+    });
+
+    async function submitTitle() {
+        const t = titleDraft.trim();
+        if (!t) {
+            titleDraft = title;
+            return;
+        }
+        if (t === title) return;
+        titleEditError = "";
+        try {
+            await onRename(t);
+        } catch (e) {
+            titleEditError = String(e);
+            titleDraft = title;
+        }
+    }
+
+    function handleTitleKeydown(e: KeyboardEvent) {
+        if (e.key === "Enter") {
+            e.preventDefault();
+            (e.target as HTMLInputElement).blur();
+        } else if (e.key === "Escape") {
+            titleDraft = title;
+            titleEditError = "";
+            (e.target as HTMLInputElement).blur();
+        }
+    }
 
     let searchTerm = $state("");
     let replaceTerm = $state("");
@@ -47,7 +84,8 @@
     let prevNodeId = untrack(() => nodeId);
     let isSwapping = false;
 
-    let container: HTMLDivElement;
+    let container: HTMLDivElement; // scrollable wrapper — used for scroll tracking
+    let editorMount: HTMLDivElement; // ProseMirror mounts here
     let editor: Editor | null = null;
     let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -109,7 +147,6 @@
                 TableCell,
                 WikiLink,
                 Tag,
-                TitleEnforcer,
                 FindReplace,
             ],
             content: pmDocToTipTap(initialDoc),
@@ -216,6 +253,9 @@
                 editor.commands.setTextSelection(1);
                 container.scrollTop = 0;
             }
+
+            titleDraft = title;
+            titleEditError = "";
         });
     });
 
@@ -326,7 +366,7 @@
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────────
     onMount(() => {
-        editor = buildEditor(container, doc);
+        editor = buildEditor(editorMount, doc);
 
         // Restore cached state if available (warm LRU)
         const cached = editorLRU.get(nodeId);
@@ -387,12 +427,23 @@
             onClose={handleClose}
         />
     {/if}
-    <div class="editor-wrap">
-        <div
-            bind:this={container}
-            class="editor-content"
-            class:title-error={titleError}
-        ></div>
+    <div class="editor-wrap" bind:this={container}>
+        <div class="editor-content">
+            <div class="title-zone">
+                <input
+                    class="title-input"
+                    bind:value={titleDraft}
+                    onblur={submitTitle}
+                    onkeydown={handleTitleKeydown}
+                    spellcheck={false}
+                    autocomplete="off"
+                />
+                {#if titleEditError}
+                    <p class="title-error-msg">{titleEditError}</p>
+                {/if}
+            </div>
+            <div bind:this={editorMount}></div>
+        </div>
     </div>
 </div>
 
@@ -446,7 +497,36 @@
         min-height: 100%;
     }
 
-    /*noinspection CssUnusedSymbol*/
+    .title-zone {
+        margin-bottom: 0.25rem;
+    }
+
+    .title-input {
+        width: 100%;
+        font-size: 1.75rem;
+        font-weight: 700;
+        font-family: inherit;
+        color: var(--fg-primary);
+        background: transparent;
+        border: none;
+        outline: none;
+        padding: 0;
+        margin: 0 0 0.1rem;
+        line-height: 1.25;
+        caret-color: var(--fg-interactive);
+    }
+
+    .title-input::placeholder {
+        color: var(--cursor);
+    }
+
+    .title-error-msg {
+        font-size: 0.75rem;
+        color: var(--fg-error);
+        margin: 0.15rem 0 0;
+        padding: 0;
+    }
+
     .editor-content :global(.ProseMirror) {
         outline: none;
         font-size: 0.95rem;
@@ -458,10 +538,6 @@
         font-size: 1.75rem;
         font-weight: 700;
         margin: 1.5rem 0 0.5rem;
-    }
-
-    .editor-content.title-error :global(.ProseMirror > h1:first-child) {
-        color: var(--fg-error);
     }
 
     .editor-content :global(.ProseMirror h2) {
@@ -525,7 +601,6 @@
         margin: 1.5rem 0;
     }
 
-    /*noinspection CssUnusedSymbol*/
     .editor-content :global(.wiki-link) {
         display: inline-block;
         background: var(--bg-active);
@@ -537,7 +612,6 @@
         user-select: none;
     }
 
-    /*noinspection CssUnusedSymbol*/
     .editor-content :global(.tag) {
         color: var(--accent);
         font-weight: 500;

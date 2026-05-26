@@ -25,7 +25,9 @@ fn collect_blocks(blocks: &[doc::Block], out: &mut HashSet<String>) {
             Block::ListItem(i) => collect_blocks(&i.content, out),
             Block::Blockquote(b) => collect_blocks(&b.content, out),
             Block::Table(t) => t
-                .head.iter().chain(t.body.iter())
+                .head
+                .iter()
+                .chain(t.body.iter())
                 .flat_map(|r| &r.cells)
                 .for_each(|c| collect_inlines(&c.content, out)),
             Block::CodeBlock(_) | Block::HorizontalRule => {}
@@ -41,18 +43,10 @@ fn collect_inlines(inlines: &[doc::Inline], out: &mut HashSet<String>) {
     }
 }
 
-/// Extracts the document title from Markdown content.
-/// Uses the first `# H1` line, falling back to the filename stem.
-pub fn extract_title(content: &str, rel_path: &str) -> String {
-    content
-        .lines()
-        .find(|l| l.starts_with("# "))
-        .map(|l| l[2..].trim().to_string())
-        .filter(|s| !s.is_empty())
-        .unwrap_or_else(|| {
-            std::path::Path::new(rel_path)
-                .file_stem()
-                .map(|s| s.to_string_lossy().into_owned())
-                .unwrap_or_else(|| rel_path.to_string())
-        })
+/// Derives the node title from its relative path (filename stem).
+pub fn title_from_path(rel_path: &str) -> String {
+    std::path::Path::new(rel_path)
+        .file_stem()
+        .map(|s| s.to_string_lossy().into_owned())
+        .unwrap_or_else(|| rel_path.to_string())
 }

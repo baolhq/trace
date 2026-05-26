@@ -17,7 +17,6 @@ class NotesStore {
   activeMeta: NodeMeta | null = $state(null);
   error = $state("");
   saving = $state(false);
-  titleError = $state(false);
 
   #loadGen = 0;
 
@@ -55,7 +54,6 @@ class NotesStore {
       this.activeDoc = res.doc;
       this.viewMode = { kind: "editor" };
       this.error = "";
-      this.titleError = false;
     } catch (e) {
       this.error = String(e);
       await this.loadRecents();
@@ -110,50 +108,31 @@ class NotesStore {
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  extractTitleFromTt(ttJson: any): string {
-    const first = ttJson?.content?.[0];
-    if (!first) return "Untitled";
-    return (
-      (first.content ?? [])
-        .filter((n: any) => n.type === "text")
-        .map((n: any) => n.text ?? "")
-        .join("")
-        .trim() || "Untitled"
-    );
-  }
-
   async handleSave(ttJson: object, saveNodeId: string) {
     if (!saveNodeId) return;
     this.saving = true;
     try {
       const doc = tipTapToPmDoc(ttJson, this.activeDoc?.frontmatter);
       await invoke("save_node", { id: saveNodeId, doc });
-      if (this.activeNodeId !== saveNodeId) return;
-      this.titleError = false;
-      const newTitle = this.extractTitleFromTt(ttJson);
-      if (this.activeMeta?.id === saveNodeId)
-        this.activeMeta = { ...this.activeMeta, title: newTitle };
-      this.recentNodes = this.recentNodes.map((n) =>
-        n.id === saveNodeId ? { ...n, title: newTitle } : n,
-      );
-      this.favorites = this.favorites.map((n) =>
-        n.id === saveNodeId ? { ...n, title: newTitle } : n,
-      );
-      logs.patchAllMembers((n) =>
-        n.id === saveNodeId ? { ...n, title: newTitle } : n,
-      );
     } catch (e) {
       if (this.activeNodeId !== saveNodeId) return;
-      const msg = String(e);
-      if (msg.includes("title invalid:")) {
-        this.titleError = true;
-      } else {
-        this.error = msg;
-      }
+      this.error = String(e);
     } finally {
       this.saving = false;
     }
+  }
+
+  async renameNode(id: string, newTitle: string) {
+    await invoke("rename_node", { id, title: newTitle });
+    if (this.activeMeta?.id === id)
+      this.activeMeta = { ...this.activeMeta, title: newTitle };
+    this.recentNodes = this.recentNodes.map((n) =>
+      n.id === id ? { ...n, title: newTitle } : n,
+    );
+    this.favorites = this.favorites.map((n) =>
+      n.id === id ? { ...n, title: newTitle } : n,
+    );
+    logs.patchAllMembers((n) => (n.id === id ? { ...n, title: newTitle } : n));
   }
 }
 

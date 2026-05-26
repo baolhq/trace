@@ -6,7 +6,7 @@ use tracing::{debug, warn};
 use trace_core::{
     hash::hash_content,
     id::NodeId,
-    markdown::{extract_tags, extract_title, parse::parse},
+    markdown::{extract_tags, parse::parse, title_from_path},
 };
 use trace_services::{events::CoreEvent, tag_service::TagService};
 use trace_store::db::Database;
@@ -29,7 +29,13 @@ impl FileSync {
         tx: broadcast::Sender<CoreEvent>,
         rx: broadcast::Receiver<CoreEvent>,
     ) -> Self {
-        Self { vault_path, db, tag_service, tx, rx }
+        Self {
+            vault_path,
+            db,
+            tag_service,
+            tx,
+            rx,
+        }
     }
 
     pub async fn run(&mut self) {
@@ -112,7 +118,7 @@ impl FileSync {
             }
             let _ = self.tx.send(CoreEvent::NodesChanged);
         } else {
-            let title = extract_title(content, rel);
+            let title = title_from_path(rel);
             let id = NodeId::generate();
             let inserted = {
                 let conn = self.db.conn();
