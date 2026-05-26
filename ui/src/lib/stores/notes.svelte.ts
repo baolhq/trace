@@ -11,6 +11,7 @@ import type {
 class NotesStore {
   recentNodes: NodeInfo[] = $state([]);
   favorites: NodeInfo[] = $state([]);
+  allTitles: string[] = $state([]);
   viewMode: ViewMode = $state(null);
   activeNodeId: string | null = $state(null);
   activeDoc: PmDoc | null = $state(null);
@@ -23,12 +24,16 @@ class NotesStore {
   async loadRecents() {
     const gen = ++this.#loadGen;
     try {
-      const raw = await invoke<NodeInfo[]>("list_nodes");
+      const [raw, titles] = await Promise.all([
+        invoke<NodeInfo[]>("list_nodes"),
+        invoke<string[]>("list_all_titles"),
+      ]);
       if (gen !== this.#loadGen) return;
       const seen = new Set<string>();
       this.recentNodes = raw.filter(
         (n) => !seen.has(n.id) && (seen.add(n.id) as unknown as boolean),
       );
+      this.allTitles = titles;
     } catch (e) {
       if (gen === this.#loadGen) this.error = String(e);
     }
@@ -123,6 +128,7 @@ class NotesStore {
   }
 
   async renameNode(id: string, newTitle: string) {
+    const oldTitle = this.activeMeta?.id === id ? this.activeMeta.title : null;
     await invoke("rename_node", { id, title: newTitle });
     if (this.activeMeta?.id === id)
       this.activeMeta = { ...this.activeMeta, title: newTitle };
@@ -132,6 +138,10 @@ class NotesStore {
     this.favorites = this.favorites.map((n) =>
       n.id === id ? { ...n, title: newTitle } : n,
     );
+    if (oldTitle !== null)
+      this.allTitles = this.allTitles.map((t) =>
+        t === oldTitle ? newTitle : t,
+      );
     logs.patchAllMembers((n) => (n.id === id ? { ...n, title: newTitle } : n));
   }
 }

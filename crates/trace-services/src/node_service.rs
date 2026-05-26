@@ -233,6 +233,12 @@ impl NodeService {
         Ok(())
     }
 
+    pub fn list_all_titles(&self) -> Result<Vec<String>, ServiceError> {
+        self.repo()
+            .list_all_titles()
+            .map_err(|e| ServiceError::Db(e.to_string()))
+    }
+
     pub fn delete(&self, id: &str) -> Result<(), ServiceError> {
         let meta = self.get_meta(id)?;
         // File may already be gone if deleted externally — that's fine.

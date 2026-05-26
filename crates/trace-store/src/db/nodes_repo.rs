@@ -122,6 +122,15 @@ impl NodesRepo {
         Ok(nodes)
     }
 
+    pub fn list_all_titles(&self) -> Result<Vec<String>, rusqlite::Error> {
+        let conn = self.db.conn();
+        let mut stmt = conn.prepare("SELECT title FROM nodes ORDER BY title")?;
+        let titles = stmt
+            .query_map([], |row| row.get::<_, String>(0))?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(titles)
+    }
+
     /// Returns (id, path, title) for every node — used for bulk indexing.
     pub fn list_all_paths(&self) -> Result<Vec<(String, String, String)>, rusqlite::Error> {
         let conn = self.db.conn();

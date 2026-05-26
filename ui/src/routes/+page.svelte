@@ -110,6 +110,9 @@
                         if (notes.activeMeta)
                             await notes.renameNode(notes.activeMeta.id, t);
                     }}
+                    existingTitles={notes.allTitles.filter(
+                        (t) => t !== (notes.activeMeta?.title ?? ""),
+                    )}
                     bind:findBarOpen
                     bind:findShowReplace
                 />

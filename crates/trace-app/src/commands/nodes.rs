@@ -65,6 +65,14 @@ pub fn create_node(title: String, state: State<'_, AppState>) -> Result<String, 
 }
 
 #[tauri::command]
+pub fn list_all_titles(state: State<'_, AppState>) -> Result<Vec<String>, String> {
+    state
+        .node_service
+        .list_all_titles()
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub fn rename_node(id: String, title: String, state: State<'_, AppState>) -> Result<(), String> {
     state
         .node_service

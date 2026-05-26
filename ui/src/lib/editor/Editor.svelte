@@ -14,6 +14,7 @@
     import { Tag } from "./extensions/Tag";
     import { FindReplace, getFindReplaceState } from "./extensions/FindReplace";
     import FindBar from "$lib/components/FindBar.svelte";
+    import Tooltip from "$lib/components/Tooltip.svelte";
     import { pmDocToTipTap, type PmDoc } from "./doc";
     import { editorLRU } from "./EditorLRU";
 
@@ -23,6 +24,7 @@
         onSave: (doc: object, nodeId: string) => void;
         title: string;
         onRename: (newTitle: string) => Promise<void>;
+        existingTitles?: string[];
         findBarOpen?: boolean;
         findShowReplace?: boolean;
     }
@@ -33,22 +35,48 @@
         onSave,
         title,
         onRename,
+        existingTitles = [],
         findBarOpen = $bindable(false),
         findShowReplace = $bindable(false),
     }: Props = $props();
 
     // ── Virtualized title ─────────────────────────────────────────────────────
+    const INVALID_TITLE_RE = /[\\/:*?"<>|\x00-\x1f]/;
+
+    const titlesLower = $derived(
+        new Set(existingTitles.map((t) => t.toLowerCase())),
+    );
+
+    function validateTitle(t: string): string {
+        if (!t) return "Title cannot be empty";
+        if (INVALID_TITLE_RE.test(t))
+            return "Title contains invalid characters";
+        if (titlesLower.has(t.toLowerCase()))
+            return "A note with this title already exists";
+        return "";
+    }
+
     let titleDraft = $state(untrack(() => title));
     let titleEditError = $state("");
+
+    const inputError = $derived(validateTitle(titleDraft.trim()));
+    const showError = $derived(
+        !!titleEditError || (titleDraft !== title && !!inputError),
+    );
+    const errorMessage = $derived(titleEditError || inputError);
 
     $effect(() => {
         titleDraft = title;
         titleEditError = "";
     });
 
+    function handleTitleInput() {
+        if (titleEditError) titleEditError = "";
+    }
+
     async function submitTitle() {
         const t = titleDraft.trim();
-        if (!t) {
+        if (inputError) {
             titleDraft = title;
             return;
         }
@@ -65,7 +93,12 @@
     function handleTitleKeydown(e: KeyboardEvent) {
         if (e.key === "Enter") {
             e.preventDefault();
-            (e.target as HTMLInputElement).blur();
+            editor
+                ?.chain()
+                .focus()
+                .insertContentAt(0, { type: "paragraph" })
+                .setTextSelection(1)
+                .run();
         } else if (e.key === "Escape") {
             titleDraft = title;
             titleEditError = "";
@@ -430,17 +463,20 @@
     <div class="editor-wrap" bind:this={container}>
         <div class="editor-content">
             <div class="title-zone">
-                <input
-                    class="title-input"
-                    bind:value={titleDraft}
-                    onblur={submitTitle}
-                    onkeydown={handleTitleKeydown}
-                    spellcheck={false}
-                    autocomplete="off"
-                />
-                {#if titleEditError}
-                    <p class="title-error-msg">{titleEditError}</p>
-                {/if}
+                <div class="title-tooltip-wrap">
+                    <Tooltip description={errorMessage}>
+                        <input
+                            class="title-input"
+                            class:invalid={showError}
+                            bind:value={titleDraft}
+                            oninput={handleTitleInput}
+                            onblur={submitTitle}
+                            onkeydown={handleTitleKeydown}
+                            spellcheck={false}
+                            autocomplete="off"
+                        />
+                    </Tooltip>
+                </div>
             </div>
             <div bind:this={editorMount}></div>
         </div>
@@ -520,11 +556,18 @@
         color: var(--cursor);
     }
 
-    .title-error-msg {
-        font-size: 0.75rem;
+    .title-input.invalid {
         color: var(--fg-error);
-        margin: 0.15rem 0 0;
-        padding: 0;
+        caret-color: var(--fg-error);
+    }
+
+    .title-tooltip-wrap {
+        width: 100%;
+    }
+
+    .title-tooltip-wrap :global(.tooltip-root) {
+        display: block;
+        width: 100%;
     }
 
     .editor-content :global(.ProseMirror) {
