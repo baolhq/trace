@@ -14,7 +14,7 @@
     import { logs } from "$lib/stores/logs.svelte";
     import { keybindings } from "$lib/keybindings";
 
-    let sidebarMode: "notes" | "search" | "outlines" = $state("notes");
+    let sidebarMode: "traces" | "search" | "outlines" = $state("traces");
     let rightPanelMode: "links" | "backlinks" | null = $state(null);
     let findBarOpen = $state(false);
     let findShowReplace = $state(false);
@@ -37,9 +37,12 @@
         });
 
         const offs = [
-            keybindings.on("app.new-note", () => notes.createUntitledNode()),
+            keybindings.on("app.new-trace", () => notes.createUntitledNode()),
             keybindings.on("app.search", () => (sidebarMode = "search")),
-            keybindings.on("app.sidebar.notes", () => (sidebarMode = "notes")),
+            keybindings.on(
+                "app.sidebar.traces",
+                () => (sidebarMode = "traces"),
+            ),
             keybindings.on(
                 "app.sidebar.search",
                 () => (sidebarMode = "search"),
@@ -75,10 +78,16 @@
     <TitleBar
         activeMeta={notes.activeMeta}
         recentNodes={notes.recentNodes}
+        logItems={logs.allLogs}
         onOpenNode={(id) => notes.openNode(id)}
         onToggleFavorite={() =>
             notes.activeMeta && notes.toggleFavorite(notes.activeMeta.id)}
         onNewNote={() => notes.createUntitledNode()}
+        onOpenLog={(id) => {
+            sidebarMode = "traces";
+            const log = logs.allLogs.find((l) => l.id === id);
+            if (log) logs.openLog({ ...log, children: [] });
+        }}
         {fileSearchPing}
         {commandPalettePing}
     />
@@ -89,7 +98,7 @@
                 <p class="sidebar-error">{notes.error}</p>
             {/if}
 
-            {#if sidebarMode === "notes"}
+            {#if sidebarMode === "traces"}
                 <div class="sidebar-panels">
                     <FavoritesPanel />
                     <LogsPanel />

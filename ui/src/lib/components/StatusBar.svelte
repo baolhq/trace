@@ -15,8 +15,8 @@
         onRightPanelChange,
         saving,
     }: {
-        sidebarMode: "notes" | "search" | "outlines";
-        onModeChange: (mode: "notes" | "search" | "outlines") => void;
+        sidebarMode: "traces" | "search" | "outlines";
+        onModeChange: (mode: "traces" | "search" | "outlines") => void;
         rightPanelMode: "links" | "backlinks" | null;
         onRightPanelChange: (mode: "links" | "backlinks" | null) => void;
         saving: boolean;
@@ -29,11 +29,11 @@
 
 <div class="statusbar">
     <div class="statusbar-section statusbar-left">
-        <Tooltip description="Notes" shortcut={{ ctrl: true, key: "1" }}>
+        <Tooltip description="Traces" shortcut={{ ctrl: true, key: "1" }}>
             <button
                 class="mode-btn"
-                class:active={sidebarMode === "notes"}
-                onclick={() => onModeChange("notes")}
+                class:active={sidebarMode === "traces"}
+                onclick={() => onModeChange("traces")}
             >
                 <TraceIcon height="1em" />
             </button>

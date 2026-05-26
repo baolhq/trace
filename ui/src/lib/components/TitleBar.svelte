@@ -25,20 +25,29 @@
         action: () => void;
     }
 
+    interface LogItem {
+        id: number;
+        name: string;
+    }
+
     let {
         activeMeta = null,
         recentNodes = [],
+        logItems = [],
         onOpenNode,
         onToggleFavorite,
         onNewNote,
+        onOpenLog,
         fileSearchPing = 0,
         commandPalettePing = 0,
     }: {
         activeMeta: ActiveMeta | null;
         recentNodes: RecentNode[];
+        logItems?: LogItem[];
         onOpenNode: (id: string) => void;
         onToggleFavorite: () => void;
         onNewNote?: () => void;
+        onOpenLog?: (id: number) => void;
         fileSearchPing?: number;
         commandPalettePing?: number;
     } = $props();
@@ -68,18 +77,59 @@
 
     const isOpen = $derived(dropdownMode !== "closed");
 
-    const filteredNotes = $derived(
+    const filteredRecents = $derived(
         query.trim()
-            ? recentNodes.filter((n) =>
-                  n.title.toLowerCase().includes(query.trim().toLowerCase()),
-              )
-            : recentNodes.slice(0, 12),
+            ? recentNodes
+                  .filter((n) =>
+                      n.title
+                          .toLowerCase()
+                          .includes(query.trim().toLowerCase()),
+                  )
+                  .slice(0, 8)
+            : recentNodes.slice(0, 8),
+    );
+
+    // Async trace suggestions (all notes, de-duped against recents)
+    let traceResults: { id: string; title: string }[] = $state([]);
+    let traceFetchTimer: ReturnType<typeof setTimeout> | null = null;
+
+    $effect(() => {
+        const q = query.trim();
+        if (!q || dropdownMode !== "search") {
+            traceResults = [];
+            return;
+        }
+        if (traceFetchTimer) clearTimeout(traceFetchTimer);
+        traceFetchTimer = setTimeout(async () => {
+            const raw = await invoke<{ id: string; title: string }[]>(
+                "suggest_nodes",
+                { prefix: q },
+            );
+            const recentIds = new Set(filteredRecents.map((n) => n.id));
+            traceResults = raw.filter((r) => !recentIds.has(r.id)).slice(0, 8);
+        }, 60);
+    });
+
+    const filteredLogs = $derived(
+        query.trim()
+            ? logItems
+                  .filter((l) =>
+                      l.name.toLowerCase().includes(query.trim().toLowerCase()),
+                  )
+                  .slice(0, 6)
+            : logItems.slice(0, 6),
+    );
+
+    const hasAnySearchResult = $derived(
+        filteredRecents.length > 0 ||
+            traceResults.length > 0 ||
+            filteredLogs.length > 0,
     );
 
     const commands: Command[] = $derived([
         {
-            id: "new-note",
-            label: "New note",
+            id: "new-trace",
+            label: "New trace",
             available: true,
             action: () => {
                 closeDropdown();
@@ -299,23 +349,67 @@
                         <p class="prompt-error">{promptError}</p>
                     {/if}
                 {:else if dropdownMode === "search"}
-                    {#if filteredNotes.length > 0}
-                        {#if !query.trim()}
-                            <p class="dropdown-section">Recent</p>
+                    {#if hasAnySearchResult}
+                        {#if query.trim()}
+                            <!-- With a query: merge recents + suggestions under "Traces" -->
+                            {@const allTraces = [
+                                ...filteredRecents,
+                                ...traceResults,
+                            ]}
+                            {#if allTraces.length > 0}
+                                <p class="dropdown-section">Traces</p>
+                                {#each allTraces as node (node.id)}
+                                    <button
+                                        class="dropdown-item"
+                                        onmousedown={(e) => {
+                                            e.preventDefault();
+                                            selectNode(node.id);
+                                        }}
+                                    >
+                                        <span class="dropdown-title"
+                                            >{node.title}</span
+                                        >
+                                    </button>
+                                {/each}
+                            {/if}
+                        {:else}
+                            <!-- No query: show recents under "Recents" -->
+                            {#if filteredRecents.length > 0}
+                                <p class="dropdown-section">Recents</p>
+                                {#each filteredRecents as node (node.id)}
+                                    <button
+                                        class="dropdown-item"
+                                        onmousedown={(e) => {
+                                            e.preventDefault();
+                                            selectNode(node.id);
+                                        }}
+                                    >
+                                        <span class="dropdown-title"
+                                            >{node.title}</span
+                                        >
+                                    </button>
+                                {/each}
+                            {/if}
                         {/if}
-                        {#each filteredNotes as node (node.id)}
-                            <button
-                                class="dropdown-item"
-                                onmousedown={(e) => {
-                                    e.preventDefault();
-                                    selectNode(node.id);
-                                }}
-                            >
-                                <span class="dropdown-title">{node.title}</span>
-                            </button>
-                        {/each}
-                    {:else}
-                        <p class="dropdown-empty">No notes match "{query}"</p>
+                        {#if query.trim() && filteredLogs.length > 0}
+                            <p class="dropdown-section">Logs</p>
+                            {#each filteredLogs as log (log.id)}
+                                <button
+                                    class="dropdown-item"
+                                    onmousedown={(e) => {
+                                        e.preventDefault();
+                                        closeDropdown();
+                                        onOpenLog?.(log.id);
+                                    }}
+                                >
+                                    <span class="dropdown-title"
+                                        >{log.name}</span
+                                    >
+                                </button>
+                            {/each}
+                        {/if}
+                    {:else if query.trim()}
+                        <p class="dropdown-empty">No results for "{query}"</p>
                     {/if}
                 {:else}
                     <p class="dropdown-section">Commands</p>

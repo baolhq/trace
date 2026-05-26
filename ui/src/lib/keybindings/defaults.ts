@@ -2,9 +2,9 @@ import type { KeybindingEntry } from "./types";
 
 export const DEFAULT_PROFILE: KeybindingEntry[] = [
   {
-    id: "app.new-note",
+    id: "app.new-trace",
     combo: { key: "n", ctrl: true },
-    description: "Create a new note",
+    description: "Create a new trace",
   },
   {
     id: "app.file-search",
@@ -24,17 +24,17 @@ export const DEFAULT_PROFILE: KeybindingEntry[] = [
   {
     id: "editor.find",
     combo: { key: "f", ctrl: true },
-    description: "Find in current note",
+    description: "Find in current trace",
   },
   {
     id: "editor.replace",
     combo: { key: "h", ctrl: true },
-    description: "Find and replace in current note",
+    description: "Find and replace in current trace",
   },
   {
-    id: "app.sidebar.notes",
+    id: "app.sidebar.traces",
     combo: { key: "1", ctrl: true },
-    description: "Switch sidebar to notes view",
+    description: "Switch sidebar to traces view",
   },
   {
     id: "app.sidebar.search",

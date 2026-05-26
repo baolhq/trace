@@ -49,9 +49,6 @@ class NotesStore {
 
   async openNode(id: string) {
     if (this.activeNodeId === id && this.viewMode?.kind === "editor") return;
-    const hit = this.recentNodes.find((n) => n.id === id);
-    if (hit)
-      this.recentNodes = [hit, ...this.recentNodes.filter((n) => n.id !== id)];
     try {
       const res = await invoke<OpenNodeResponse>("open_node", { id });
       this.activeNodeId = id;
@@ -59,6 +56,15 @@ class NotesStore {
       this.activeDoc = res.doc;
       this.viewMode = { kind: "editor" };
       this.error = "";
+      // Bring the opened note to the top of recents regardless of whether it
+      // was already in the list (wikilink navigation may open an unlisted note).
+      const info: NodeInfo = {
+        id: res.meta.id,
+        title: res.meta.title,
+        created_at: res.meta.created_at,
+        is_favorite: res.meta.is_favorite,
+      };
+      this.recentNodes = [info, ...this.recentNodes.filter((n) => n.id !== id)];
     } catch (e) {
       this.error = String(e);
       await this.loadRecents();
