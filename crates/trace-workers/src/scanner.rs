@@ -9,7 +9,7 @@ use trace_core::{
     id::NodeId,
     markdown::{extract_tags, parse::parse, title_from_path},
 };
-use trace_services::{events::CoreEvent, tag_service::TagService};
+use trace_services::{events::CoreEvent, link_service::LinkService, tag_service::TagService};
 use trace_store::db::Database;
 
 use crate::util::{mtime_of, now_ms};
@@ -18,6 +18,7 @@ pub struct Scanner {
     vault_path: PathBuf,
     db: Arc<Database>,
     tag_service: TagService,
+    link_service: LinkService,
     event_tx: broadcast::Sender<CoreEvent>,
 }
 
@@ -26,12 +27,14 @@ impl Scanner {
         vault_path: PathBuf,
         db: Arc<Database>,
         tag_service: TagService,
+        link_service: LinkService,
         event_tx: broadcast::Sender<CoreEvent>,
     ) -> Self {
         Self {
             vault_path,
             db,
             tag_service,
+            link_service,
             event_tx,
         }
     }
@@ -90,6 +93,9 @@ impl Scanner {
                     if let Err(e) = self.tag_service.sync_tags(&node_id, &tags) {
                         warn!("scanner: sync_tags failed for {rel}: {e}");
                     }
+                    if let Err(e) = self.link_service.extract_and_store(&node_id, content) {
+                        warn!("scanner: extract_and_store failed for {rel}: {e}");
+                    }
                 }
             }
         }
@@ -132,7 +138,70 @@ impl Scanner {
             "scanner: done — {changed} changed file(s), {} orphan(s) removed",
             orphans.len()
         );
+
+        self.backfill_links_if_needed();
+
         let _ = self.event_tx.send(CoreEvent::ScanComplete);
+    }
+
+    /// One-time backfill: extracts links for every known node the first time
+    /// this version of the app runs. Guarded by `links_version` in `app_meta`.
+    fn backfill_links_if_needed(&self) {
+        let already_done = {
+            let conn = self.db.conn();
+            conn.query_row(
+                "SELECT value FROM app_meta WHERE key='links_version'",
+                [],
+                |row| row.get::<_, String>(0),
+            )
+            .ok()
+            .as_deref()
+                == Some("1")
+        };
+
+        if already_done {
+            return;
+        }
+
+        info!("scanner: running one-time link backfill for all existing nodes");
+
+        let nodes: Vec<(String, String)> = {
+            let conn = self.db.conn();
+            let mut stmt = match conn.prepare("SELECT id, path FROM nodes") {
+                Ok(s) => s,
+                Err(e) => {
+                    warn!("scanner: backfill query failed: {e}");
+                    return;
+                }
+            };
+            stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+                .unwrap_or_else(|_| unreachable!())
+                .filter_map(|r| r.ok())
+                .collect()
+        };
+
+        let count = nodes.len();
+        for (node_id, rel_path) in &nodes {
+            let abs = self.vault_path.join(rel_path);
+            match std::fs::read_to_string(&abs) {
+                Ok(content) => {
+                    if let Err(e) = self.link_service.extract_and_store(node_id, &content) {
+                        warn!("scanner: backfill failed for {rel_path}: {e}");
+                    }
+                }
+                Err(e) => warn!("scanner: backfill read error {rel_path}: {e}"),
+            }
+        }
+
+        {
+            let conn = self.db.conn();
+            let _ = conn.execute(
+                "INSERT OR REPLACE INTO app_meta(key,value) VALUES('links_version','1')",
+                [],
+            );
+        }
+
+        info!("scanner: link backfill complete ({count} nodes)");
     }
 
     fn insert_node(&self, rel: &str, bytes: &[u8], hash: &str, mtime_ms: i64) -> Option<String> {
@@ -162,6 +231,9 @@ impl Scanner {
             let tags = extract_tags(&doc);
             if let Err(e) = self.tag_service.sync_tags(id.as_str(), &tags) {
                 warn!("scanner: sync_tags failed for {rel}: {e}");
+            }
+            if let Err(e) = self.link_service.extract_and_store(id.as_str(), content) {
+                warn!("scanner: extract_and_store failed for {rel}: {e}");
             }
             Some(id.to_string())
         } else {

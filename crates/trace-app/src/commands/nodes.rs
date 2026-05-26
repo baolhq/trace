@@ -1,8 +1,8 @@
-use tauri::State;
+use tauri::{AppHandle, Emitter, State};
 use tracing::{info, warn};
 
 use trace_core::{
-    markdown::{doc::PmDoc, extract_tags},
+    markdown::{doc::PmDoc, extract_tags, serialize::serialize},
     model::Node,
 };
 
@@ -40,7 +40,12 @@ pub fn open_node(id: String, state: State<'_, AppState>) -> Result<OpenNodeRespo
 }
 
 #[tauri::command]
-pub fn save_node(id: String, doc: PmDoc, state: State<'_, AppState>) -> Result<(), String> {
+pub fn save_node(
+    id: String,
+    doc: PmDoc,
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
     state
         .node_service
         .save_doc(&id, &doc)
@@ -49,6 +54,11 @@ pub fn save_node(id: String, doc: PmDoc, state: State<'_, AppState>) -> Result<(
     if let Err(e) = state.tag_service.sync_tags(&id, &tags) {
         warn!("sync_tags failed for {id}: {e}");
     }
+    let body = serialize(&doc);
+    if let Err(e) = state.link_service.extract_and_store(&id, &body) {
+        warn!("extract_and_store failed for {id}: {e}");
+    }
+    let _ = app.emit("links_updated", &id);
     state.suggest_service.rebuild();
     Ok(())
 }
@@ -59,6 +69,9 @@ pub fn create_node(title: String, state: State<'_, AppState>) -> Result<String, 
         .node_service
         .create(&title)
         .map_err(|e| e.to_string())?;
+    if let Err(e) = state.link_service.resolve_new_node(&title, id.as_str()) {
+        warn!("resolve_new_node failed for {id}: {e}");
+    }
     state.suggest_service.rebuild();
     info!("command: created node {title:?} ({id})");
     Ok(id.to_string())
@@ -70,6 +83,15 @@ pub fn list_all_titles(state: State<'_, AppState>) -> Result<Vec<String>, String
         .node_service
         .list_all_titles()
         .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn get_node_id_by_title(title: String, state: State<'_, AppState>) -> Option<String> {
+    use trace_store::db::nodes_repo::NodesRepo;
+    NodesRepo::new(std::sync::Arc::clone(&state.db))
+        .get_id_by_title(&title)
+        .ok()
+        .flatten()
 }
 
 #[tauri::command]

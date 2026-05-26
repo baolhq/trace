@@ -44,6 +44,17 @@ pub struct Log {
     pub sort_key: f64,
 }
 
+/// Enriched link entry returned to the frontend.
+/// For backlinks: node_id/title = the source note.
+/// For outgoing: node_id/title = the target note (None when unresolved).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LinkInfo {
+    pub node_id: Option<String>,
+    pub title: Option<String>,
+    pub target_raw: String,
+    pub link_type: u8,
+}
+
 /// Lightweight node DTO used in list and member views.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NodeInfo {

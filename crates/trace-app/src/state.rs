@@ -8,8 +8,9 @@ use std::{
 
 use tokio::sync::broadcast;
 use trace_services::{
-    events::CoreEvent, log_service::LogService, node_service::NodeService,
-    search_service::SearchService, suggest_service::SuggestService, tag_service::TagService,
+    events::CoreEvent, link_service::LinkService, log_service::LogService,
+    node_service::NodeService, search_service::SearchService, suggest_service::SuggestService,
+    tag_service::TagService,
 };
 use trace_store::db::Database;
 
@@ -18,6 +19,7 @@ pub struct AppState {
     pub vault_path: PathBuf,
     pub event_tx: broadcast::Sender<CoreEvent>,
     pub node_service: NodeService,
+    pub link_service: LinkService,
     pub tag_service: TagService,
     pub log_service: LogService,
     pub suggest_service: SuggestService,
@@ -33,6 +35,7 @@ impl AppState {
         vault_path: PathBuf,
         event_tx: broadcast::Sender<CoreEvent>,
         node_service: NodeService,
+        link_service: LinkService,
         tag_service: TagService,
         log_service: LogService,
         suggest_service: SuggestService,
@@ -43,6 +46,7 @@ impl AppState {
             vault_path,
             event_tx,
             node_service,
+            link_service,
             tag_service,
             log_service,
             suggest_service,

@@ -122,6 +122,18 @@ impl NodesRepo {
         Ok(nodes)
     }
 
+    pub fn get_id_by_title(&self, title: &str) -> Result<Option<String>, rusqlite::Error> {
+        match self.db.conn().query_row(
+            "SELECT id FROM nodes WHERE title = ?1",
+            params![title],
+            |row| row.get(0),
+        ) {
+            Ok(id) => Ok(Some(id)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e),
+        }
+    }
+
     pub fn list_all_titles(&self) -> Result<Vec<String>, rusqlite::Error> {
         let conn = self.db.conn();
         let mut stmt = conn.prepare("SELECT title FROM nodes ORDER BY title")?;

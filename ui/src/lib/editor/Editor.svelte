@@ -24,6 +24,7 @@
         onSave: (doc: object, nodeId: string) => void;
         title: string;
         onRename: (newTitle: string) => Promise<void>;
+        onNavigate?: (target: string, isIdRef: boolean) => void;
         existingTitles?: string[];
         findBarOpen?: boolean;
         findShowReplace?: boolean;
@@ -35,6 +36,7 @@
         onSave,
         title,
         onRename,
+        onNavigate,
         existingTitles = [],
         findBarOpen = $bindable(false),
         findShowReplace = $bindable(false),
@@ -178,7 +180,7 @@
                 TableRow,
                 TableHeader,
                 TableCell,
-                WikiLink,
+                WikiLink.configure({ onNavigate }),
                 Tag,
                 FindReplace,
             ],
@@ -646,11 +648,7 @@
 
     .editor-content :global(.wiki-link) {
         display: inline-block;
-        background: var(--bg-active);
         color: var(--fg-interactive);
-        border-radius: 4px;
-        padding: 0 0.3em;
-        font-size: 0.9em;
         cursor: pointer;
         user-select: none;
     }

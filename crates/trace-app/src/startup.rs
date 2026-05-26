@@ -3,8 +3,9 @@ use std::{path::PathBuf, sync::Arc};
 use tauri::{AppHandle, Emitter};
 use tokio::sync::broadcast;
 use trace_services::{
-    events::CoreEvent, log_service::LogService, node_service::NodeService,
-    search_service::SearchService, suggest_service::SuggestService, tag_service::TagService,
+    events::CoreEvent, link_service::LinkService, log_service::LogService,
+    node_service::NodeService, search_service::SearchService, suggest_service::SuggestService,
+    tag_service::TagService,
 };
 use trace_store::db::{migrations, Database};
 use trace_workers::{FileSync, Scanner, Watcher};
@@ -30,6 +31,7 @@ pub fn init(vault_path: PathBuf, db_path: PathBuf, app_handle: AppHandle) -> App
         vault_path.clone(),
         Arc::clone(&db),
         TagService::new(Arc::clone(&db)),
+        LinkService::new(Arc::clone(&db)),
         event_tx.clone(),
     );
     tauri::async_runtime::spawn(async move { scanner.run().await });
@@ -41,6 +43,7 @@ pub fn init(vault_path: PathBuf, db_path: PathBuf, app_handle: AppHandle) -> App
         vault_path.clone(),
         Arc::clone(&db),
         TagService::new(Arc::clone(&db)),
+        LinkService::new(Arc::clone(&db)),
         event_tx.clone(),
         event_rx,
     );
@@ -52,6 +55,9 @@ pub fn init(vault_path: PathBuf, db_path: PathBuf, app_handle: AppHandle) -> App
                 Ok(CoreEvent::NodesChanged | CoreEvent::ScanComplete) => {
                     let _ = app_handle.emit("nodes_changed", ());
                 }
+                Ok(CoreEvent::LinksUpdated { id }) => {
+                    let _ = app_handle.emit("links_updated", id);
+                }
                 Ok(_) => {}
                 Err(broadcast::error::RecvError::Closed) => break,
                 Err(broadcast::error::RecvError::Lagged(_)) => {}
@@ -60,6 +66,7 @@ pub fn init(vault_path: PathBuf, db_path: PathBuf, app_handle: AppHandle) -> App
     });
 
     let node_service = NodeService::new(Arc::clone(&db), vault_path.clone());
+    let link_service = LinkService::new(Arc::clone(&db));
     let tag_service = TagService::new(Arc::clone(&db));
     let log_service = LogService::new(Arc::clone(&db));
     let suggest_service = SuggestService::new(Arc::clone(&db));
@@ -74,6 +81,7 @@ pub fn init(vault_path: PathBuf, db_path: PathBuf, app_handle: AppHandle) -> App
         vault_path,
         event_tx,
         node_service,
+        link_service,
         tag_service,
         log_service,
         suggest_service,

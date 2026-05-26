@@ -8,12 +8,14 @@
     import LogsPanel from "$lib/components/LogsPanel.svelte";
     import RecentsPanel from "$lib/components/RecentsPanel.svelte";
     import SearchPanel from "$lib/components/SearchPanel.svelte";
+    import RightPanel from "$lib/components/RightPanel.svelte";
     import StatusBar from "$lib/components/StatusBar.svelte";
     import { notes } from "$lib/stores/notes.svelte";
     import { logs } from "$lib/stores/logs.svelte";
     import { keybindings } from "$lib/keybindings";
 
     let sidebarMode: "notes" | "search" | "outlines" = $state("notes");
+    let rightPanelMode: "links" | "backlinks" | null = $state(null);
     let findBarOpen = $state(false);
     let findShowReplace = $state(false);
     let fileSearchPing = $state(0);
@@ -110,6 +112,17 @@
                         if (notes.activeMeta)
                             await notes.renameNode(notes.activeMeta.id, t);
                     }}
+                    onNavigate={async (target, isIdRef) => {
+                        if (isIdRef) {
+                            await notes.openNode(target);
+                        } else {
+                            const id = await invoke<string | null>(
+                                "get_node_id_by_title",
+                                { title: target },
+                            );
+                            if (id) await notes.openNode(id);
+                        }
+                    }}
                     existingTitles={notes.allTitles.filter(
                         (t) => t !== (notes.activeMeta?.title ?? ""),
                     )}
@@ -122,11 +135,20 @@
                 </div>
             {/if}
         </main>
+
+        {#if rightPanelMode}
+            <RightPanel
+                mode={rightPanelMode}
+                nodeId={notes.activeNodeId ?? null}
+            />
+        {/if}
     </div>
 
     <StatusBar
         {sidebarMode}
         onModeChange={(m) => (sidebarMode = m)}
+        {rightPanelMode}
+        onRightPanelChange={(m) => (rightPanelMode = m)}
         saving={notes.saving}
     />
 </div>

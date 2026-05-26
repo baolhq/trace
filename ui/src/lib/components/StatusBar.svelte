@@ -11,12 +11,20 @@
     let {
         sidebarMode,
         onModeChange,
+        rightPanelMode,
+        onRightPanelChange,
         saving,
     }: {
         sidebarMode: "notes" | "search" | "outlines";
         onModeChange: (mode: "notes" | "search" | "outlines") => void;
+        rightPanelMode: "links" | "backlinks" | null;
+        onRightPanelChange: (mode: "links" | "backlinks" | null) => void;
         saving: boolean;
     } = $props();
+
+    function togglePanel(tab: "links" | "backlinks") {
+        onRightPanelChange(rightPanelMode === tab ? null : tab);
+    }
 </script>
 
 <div class="statusbar">
@@ -57,12 +65,20 @@
             </span>
         {/if}
         <Tooltip description="Links">
-            <button class="status-btn">
+            <button
+                class="status-btn"
+                class:active={rightPanelMode === "links"}
+                onclick={() => togglePanel("links")}
+            >
                 <LinkIcon height="1em" />
             </button>
         </Tooltip>
         <Tooltip description="Backlinks">
-            <button class="status-btn">
+            <button
+                class="status-btn"
+                class:active={rightPanelMode === "backlinks"}
+                onclick={() => togglePanel("backlinks")}
+            >
                 <BacklinkIcon height="1em" />
             </button>
         </Tooltip>
@@ -141,6 +157,10 @@
     .status-btn:hover {
         color: var(--fg-muted);
         background: var(--bg-hover);
+    }
+
+    .status-btn.active {
+        color: var(--fg-interactive);
     }
 
     :global(.save-dot) {

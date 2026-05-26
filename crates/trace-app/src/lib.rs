@@ -3,13 +3,14 @@ mod startup;
 mod state;
 
 use crate::commands::generate::{gen_vault_cmd, vault_path_cmd};
+use crate::commands::links::{get_backlinks, get_links};
 use crate::commands::logs::{
     add_to_log, create_log, delete_log, get_log_members, get_log_tree, remove_from_log, rename_log,
     reorder_in_log, reorder_log,
 };
 use crate::commands::nodes::{
-    create_node, delete_node, list_all_titles, list_favorites, list_nodes, open_node, rename_node,
-    save_node, toggle_favorite,
+    create_node, delete_node, get_node_id_by_title, list_all_titles, list_favorites, list_nodes,
+    open_node, rename_node, save_node, toggle_favorite,
 };
 use crate::commands::search::search_nodes_async;
 use crate::commands::suggest::{suggest_nodes, suggest_tags};
@@ -43,7 +44,11 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             // nodes
             list_nodes,
+            // links
+            get_links,
+            get_backlinks,
             list_all_titles,
+            get_node_id_by_title,
             open_node,
             save_node,
             create_node,

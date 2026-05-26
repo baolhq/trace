@@ -1,4 +1,5 @@
 import { Node, mergeAttributes, nodeInputRule } from "@tiptap/core";
+import { Plugin, PluginKey } from "@tiptap/pm/state";
 
 export interface WikiLinkOptions {
   HTMLAttributes: Record<string, unknown>;
@@ -77,5 +78,28 @@ export const WikiLink = Node.create<WikiLinkOptions>({
           });
         },
     };
+  },
+
+  addProseMirrorPlugins() {
+    const { onNavigate } = this.options;
+    return [
+      new Plugin({
+        key: new PluginKey("wikiLinkClick"),
+        props: {
+          handleClick(_view, _pos, event) {
+            const el = event.target as HTMLElement;
+            const span = el.closest("[data-wiki-link]") as HTMLElement | null;
+            if (!span) return false;
+            const target = span.getAttribute("data-wiki-link");
+            const isIdRef = span.getAttribute("data-id-ref") === "true";
+            if (target && onNavigate) {
+              onNavigate(target, isIdRef);
+              return true;
+            }
+            return false;
+          },
+        },
+      }),
+    ];
   },
 });

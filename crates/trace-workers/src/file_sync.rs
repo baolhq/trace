@@ -8,7 +8,7 @@ use trace_core::{
     id::NodeId,
     markdown::{extract_tags, parse::parse, title_from_path},
 };
-use trace_services::{events::CoreEvent, tag_service::TagService};
+use trace_services::{events::CoreEvent, link_service::LinkService, tag_service::TagService};
 use trace_store::db::Database;
 
 use crate::util::{mtime_of, now_ms};
@@ -17,6 +17,7 @@ pub struct FileSync {
     vault_path: PathBuf,
     db: Arc<Database>,
     tag_service: TagService,
+    link_service: LinkService,
     tx: broadcast::Sender<CoreEvent>,
     rx: broadcast::Receiver<CoreEvent>,
 }
@@ -26,6 +27,7 @@ impl FileSync {
         vault_path: PathBuf,
         db: Arc<Database>,
         tag_service: TagService,
+        link_service: LinkService,
         tx: broadcast::Sender<CoreEvent>,
         rx: broadcast::Receiver<CoreEvent>,
     ) -> Self {
@@ -33,6 +35,7 @@ impl FileSync {
             vault_path,
             db,
             tag_service,
+            link_service,
             tx,
             rx,
         }
@@ -115,6 +118,10 @@ impl FileSync {
                 if let Err(e) = self.tag_service.sync_tags(&node_id, &tags) {
                     warn!("file_sync: sync_tags failed for {rel}: {e}");
                 }
+                if let Err(e) = self.link_service.extract_and_store(&node_id, content) {
+                    warn!("file_sync: extract_and_store failed for {rel}: {e}");
+                }
+                let _ = self.tx.send(CoreEvent::LinksUpdated { id: node_id });
             }
             let _ = self.tx.send(CoreEvent::NodesChanged);
         } else {
@@ -144,6 +151,10 @@ impl FileSync {
                 if let Err(e) = self.tag_service.sync_tags(id.as_str(), &tags) {
                     warn!("file_sync: sync_tags failed for {rel}: {e}");
                 }
+                if let Err(e) = self.link_service.extract_and_store(id.as_str(), content) {
+                    warn!("file_sync: extract_and_store failed for {rel}: {e}");
+                }
+                let _ = self.tx.send(CoreEvent::LinksUpdated { id: id.to_string() });
                 let _ = self.tx.send(CoreEvent::NodesChanged);
             }
         }

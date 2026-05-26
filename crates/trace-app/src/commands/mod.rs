@@ -1,4 +1,5 @@
 pub mod generate;
+pub mod links;
 pub mod logs;
 pub mod nodes;
 pub mod search;
