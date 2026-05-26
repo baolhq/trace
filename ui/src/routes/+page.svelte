@@ -14,6 +14,18 @@
     import { notes } from "$lib/stores/notes.svelte";
     import { logs } from "$lib/stores/logs.svelte";
     import { keybindings } from "$lib/keybindings";
+    import Spinner from "$lib/components/Spinner.svelte";
+    import { getCurrentWindow } from "@tauri-apps/api/window";
+    import { cubicIn } from "svelte/easing";
+
+    function growFade(_node: Element, { duration = 600 } = {}) {
+        return {
+            duration,
+            easing: cubicIn,
+            css: (t: number) =>
+                `opacity: ${t}; transform: scale(${1 + (1 - t) * 0.18});`,
+        };
+    }
 
     let sidebarMode: "traces" | "search" | "outlines" = $state("traces");
     let rightPanelMode: "links" | "backlinks" | null = $state(null);
@@ -21,17 +33,21 @@
     let findShowReplace = $state(false);
     let fileSearchPing = $state(0);
     let commandPalettePing = $state(0);
+    let backendReady = $state(false);
 
     let unlisten: (() => void) | undefined;
     let unregisterKeybindings: (() => void) | undefined;
 
     onMount(async () => {
+        await new Promise(requestAnimationFrame);
+        await getCurrentWindow().show();
+        backendReady = await invoke("backend_ready");
+
         await Promise.all([
             notes.loadRecents(),
             notes.loadFavorites(),
             logs.loadLogs(),
         ]);
-        await invoke("frontend_ready");
         unlisten = await listen("nodes_changed", () => {
             notes.loadRecents();
             notes.loadFavorites();
@@ -80,91 +96,99 @@
     role="application"
     oncontextmenu={(e) => e.preventDefault()}
 >
-    <TitleBar
-        activeMeta={notes.activeMeta}
-        recentNodes={notes.recentNodes}
-        logItems={logs.allLogs}
-        onOpenNode={(id) => notes.openNode(id)}
-        onToggleFavorite={() =>
-            notes.activeMeta && notes.toggleFavorite(notes.activeMeta.id)}
-        onNewNote={() => notes.createUntitledNode()}
-        onOpenLog={(id) => {
-            sidebarMode = "traces";
-            const log = logs.allLogs.find((l) => l.id === id);
-            if (log) logs.openLog({ ...log, children: [] });
-        }}
-        {fileSearchPing}
-        {commandPalettePing}
-    />
+    {#if backendReady}
+        <TitleBar
+            activeMeta={notes.activeMeta}
+            recentNodes={notes.recentNodes}
+            logItems={logs.allLogs}
+            onOpenNode={(id) => notes.openNode(id)}
+            onToggleFavorite={() =>
+                notes.activeMeta && notes.toggleFavorite(notes.activeMeta.id)}
+            onNewNote={() => notes.createUntitledNode()}
+            onOpenLog={(id) => {
+                sidebarMode = "traces";
+                const log = logs.allLogs.find((l) => l.id === id);
+                if (log) logs.openLog({ ...log, children: [] });
+            }}
+            {fileSearchPing}
+            {commandPalettePing}
+        />
 
-    <div class="shell">
-        <aside class="sidebar">
-            {#if notes.error}
-                <p class="sidebar-error">{notes.error}</p>
-            {/if}
+        <div class="shell">
+            <aside class="sidebar">
+                {#if notes.error}
+                    <p class="sidebar-error">{notes.error}</p>
+                {/if}
 
-            {#if sidebarMode === "traces"}
-                <div class="sidebar-panels">
-                    <FavoritesPanel />
-                    <LogsPanel />
-                    <RecentsPanel />
-                </div>
-            {:else if sidebarMode === "search"}
-                <SearchPanel />
-            {/if}
-        </aside>
+                {#if sidebarMode === "traces"}
+                    <div class="sidebar-panels">
+                        <FavoritesPanel />
+                        <LogsPanel />
+                        <RecentsPanel />
+                    </div>
+                {:else if sidebarMode === "search"}
+                    <SearchPanel />
+                {/if}
+            </aside>
 
-        <main class="main-pane">
-            {#if notes.viewMode?.kind === "editor" && notes.activeDoc && notes.activeNodeId}
-                <Editor
-                    nodeId={notes.activeNodeId}
-                    doc={notes.activeDoc}
-                    onSave={(ttJson, nodeId) =>
-                        notes.handleSave(ttJson, nodeId)}
-                    title={notes.activeMeta?.title ?? ""}
-                    onRename={async (t) => {
-                        if (notes.activeMeta)
-                            await notes.renameNode(notes.activeMeta.id, t);
-                    }}
-                    onNavigate={async (target, isIdRef) => {
-                        if (isIdRef) {
-                            await notes.openNode(target);
-                        } else {
-                            const id = await invoke<string | null>(
-                                "get_node_id_by_title",
-                                { title: target },
-                            );
-                            if (id) await notes.openNode(id);
-                        }
-                    }}
-                    existingTitles={notes.allTitles.filter(
-                        (t) => t !== (notes.activeMeta?.title ?? ""),
-                    )}
-                    bind:findBarOpen
-                    bind:findShowReplace
+            <main class="main-pane">
+                {#if notes.viewMode?.kind === "editor" && notes.activeDoc && notes.activeNodeId}
+                    <Editor
+                        nodeId={notes.activeNodeId}
+                        doc={notes.activeDoc}
+                        onSave={(ttJson, nodeId) =>
+                            notes.handleSave(ttJson, nodeId)}
+                        title={notes.activeMeta?.title ?? ""}
+                        onRename={async (t) => {
+                            if (notes.activeMeta)
+                                await notes.renameNode(notes.activeMeta.id, t);
+                        }}
+                        onNavigate={async (target, isIdRef) => {
+                            if (isIdRef) {
+                                await notes.openNode(target);
+                            } else {
+                                const id = await invoke<string | null>(
+                                    "get_node_id_by_title",
+                                    { title: target },
+                                );
+                                if (id) await notes.openNode(id);
+                            }
+                        }}
+                        existingTitles={notes.allTitles.filter(
+                            (t) => t !== (notes.activeMeta?.title ?? ""),
+                        )}
+                        bind:findBarOpen
+                        bind:findShowReplace
+                    />
+                {:else}
+                    <div class="empty-state">
+                        <p>Select a note or create one to start writing.</p>
+                    </div>
+                {/if}
+            </main>
+
+            {#if rightPanelMode}
+                <RightPanel
+                    mode={rightPanelMode}
+                    nodeId={notes.activeNodeId ?? null}
                 />
-            {:else}
-                <div class="empty-state">
-                    <p>Select a note or create one to start writing.</p>
-                </div>
             {/if}
-        </main>
+        </div>
 
-        {#if rightPanelMode}
-            <RightPanel
-                mode={rightPanelMode}
-                nodeId={notes.activeNodeId ?? null}
-            />
-        {/if}
-    </div>
+        <StatusBar
+            {sidebarMode}
+            onModeChange={(m) => (sidebarMode = m)}
+            {rightPanelMode}
+            onRightPanelChange={(m) => (rightPanelMode = m)}
+            saving={notes.saving}
+        />
+    {/if}
 
-    <StatusBar
-        {sidebarMode}
-        onModeChange={(m) => (sidebarMode = m)}
-        {rightPanelMode}
-        onRightPanelChange={(m) => (rightPanelMode = m)}
-        saving={notes.saving}
-    />
+    {#if !backendReady}
+        <div class="spinner-overlay" out:growFade>
+            <Spinner />
+        </div>
+    {/if}
 </div>
 
 <ContextMenu />
@@ -186,6 +210,15 @@
         display: flex;
         flex-direction: column;
         height: 100vh;
+        overflow: hidden;
+        position: relative;
+    }
+
+    .spinner-overlay {
+        position: absolute;
+        inset: 0;
+        z-index: 99;
+        background: var(--bg-primary);
         overflow: hidden;
     }
 

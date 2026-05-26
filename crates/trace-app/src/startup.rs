@@ -24,8 +24,9 @@ pub fn init(vault_path: PathBuf, db_path: PathBuf, app_handle: AppHandle) -> App
     info!("startup: schema up to date");
 
     let (event_tx, event_rx) = broadcast::channel::<CoreEvent>(512);
-
     let mut ui_rx = event_tx.subscribe();
+
+    let (ready_tx, ready_rx) = tokio::sync::watch::channel(false);
 
     let scanner = Scanner::new(
         vault_path.clone(),
@@ -34,7 +35,10 @@ pub fn init(vault_path: PathBuf, db_path: PathBuf, app_handle: AppHandle) -> App
         LinkService::new(Arc::clone(&db)),
         event_tx.clone(),
     );
-    tauri::async_runtime::spawn(async move { scanner.run().await });
+    tauri::async_runtime::spawn(async move {
+        scanner.run().await;
+        let _ = ready_tx.send(true);
+    });
 
     let watcher = Watcher::new(vault_path.clone(), event_tx.clone());
     tauri::async_runtime::spawn(async move { watcher.run().await });
@@ -86,5 +90,6 @@ pub fn init(vault_path: PathBuf, db_path: PathBuf, app_handle: AppHandle) -> App
         log_service,
         suggest_service,
         search_service,
+        ready_rx,
     )
 }

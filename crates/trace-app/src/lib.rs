@@ -15,7 +15,7 @@ use crate::commands::nodes::{
 use crate::commands::search::search_nodes_async;
 use crate::commands::suggest::{suggest_nodes, suggest_tags};
 use crate::commands::tags::{list_nodes_by_tag, list_tags};
-use crate::commands::window::frontend_ready;
+use crate::commands::window::backend_ready;
 use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -37,7 +37,6 @@ pub fn run() {
             std::fs::create_dir_all(&vault_path)?;
 
             let state = startup::init(vault_path, db_path, app.handle().clone());
-            state.mark_backend_ready();
             app.manage(state);
             Ok(())
         })
@@ -78,7 +77,7 @@ pub fn run() {
             vault_path_cmd,
             gen_vault_cmd,
             // window
-            frontend_ready,
+            backend_ready,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

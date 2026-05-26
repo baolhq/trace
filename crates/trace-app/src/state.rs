@@ -1,12 +1,9 @@
 use std::{
     path::PathBuf,
-    sync::{
-        atomic::{AtomicBool, AtomicU64, Ordering},
-        Arc,
-    },
+    sync::{atomic::AtomicU64, Arc},
 };
 
-use tokio::sync::broadcast;
+use tokio::sync::{broadcast, watch};
 use trace_services::{
     events::CoreEvent, link_service::LinkService, log_service::LogService,
     node_service::NodeService, search_service::SearchService, suggest_service::SuggestService,
@@ -25,7 +22,7 @@ pub struct AppState {
     pub suggest_service: SuggestService,
     pub search_service: SearchService,
     pub search_epoch: Arc<AtomicU64>,
-    backend_ready: AtomicBool,
+    pub ready_rx: watch::Receiver<bool>,
 }
 
 impl AppState {
@@ -40,6 +37,7 @@ impl AppState {
         log_service: LogService,
         suggest_service: SuggestService,
         search_service: SearchService,
+        ready_rx: watch::Receiver<bool>,
     ) -> Self {
         Self {
             db,
@@ -52,16 +50,8 @@ impl AppState {
             suggest_service,
             search_service,
             search_epoch: Arc::new(AtomicU64::new(0)),
-            backend_ready: AtomicBool::new(false),
+            ready_rx,
         }
-    }
-
-    pub fn mark_backend_ready(&self) {
-        self.backend_ready.store(true, Ordering::Release);
-    }
-
-    pub fn is_backend_ready(&self) -> bool {
-        self.backend_ready.load(Ordering::Acquire)
     }
 
     pub fn subscribe(&self) -> broadcast::Receiver<CoreEvent> {
