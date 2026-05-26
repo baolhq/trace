@@ -1,5 +1,5 @@
 <script lang="ts">
-    import type { Snippet } from "svelte";
+    import { untrack, type Snippet } from "svelte";
 
     let {
         title,

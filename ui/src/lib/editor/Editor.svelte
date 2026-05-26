@@ -480,7 +480,7 @@
                     </Tooltip>
                 </div>
             </div>
-            <div bind:this={editorMount}></div>
+            <div bind:this={editorMount} spellcheck={false}></div>
         </div>
     </div>
 </div>
@@ -529,6 +529,7 @@
     }
 
     .editor-content {
+        font-family: var(--font-content), monospace;
         max-width: 680px;
         margin: 0 auto;
         padding: 2rem 1.5rem 6rem;
@@ -543,7 +544,6 @@
         width: 100%;
         font-size: 1.75rem;
         font-weight: 700;
-        font-family: inherit;
         color: var(--fg-primary);
         background: transparent;
         border: none;
@@ -612,7 +612,7 @@
     }
 
     .editor-content :global(.ProseMirror code) {
-        font-family: ui-monospace, monospace;
+        font-family: var(--font-mono);
         font-size: 0.875em;
         background: var(--bg-hover);
         border-radius: 3px;

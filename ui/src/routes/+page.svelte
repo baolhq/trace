@@ -160,10 +160,8 @@
 
     :global(body) {
         margin: 0;
-        font-family:
-            system-ui,
-            -apple-system,
-            sans-serif;
+        font-family: var(--font-ui);
+        font-feature-settings: "lnum", "tnum";
         background: var(--bg-primary);
         color: var(--fg-primary);
     }

@@ -268,7 +268,6 @@
         border-radius: 3px;
         padding: 0.2rem 0.35rem;
         font-size: 0.78rem;
-        font-family: monospace;
         color: var(--cursor);
         cursor: pointer;
         transition:

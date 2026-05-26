@@ -151,7 +151,6 @@
     }
 
     .empty-hint code {
-        font-family: monospace;
         font-size: 0.7rem;
         background: var(--bg-hover);
         padding: 0.1em 0.3em;

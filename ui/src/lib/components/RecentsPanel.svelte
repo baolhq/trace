@@ -89,6 +89,7 @@
     .node-title {
         display: block;
         font-size: 0.875rem;
+        font-family: var(--font-ui);
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;

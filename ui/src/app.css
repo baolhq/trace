@@ -1,26 +1,27 @@
-/* ── Gruvbox dark palette ── */
+@import "/fonts.css";
+
 :root {
     --titlebar-height: 36px;
-    /* Background */
-    --bg-primary:     #1d2021;
-    --bg-panel:       #282828;
-    --bg-hover:       #32302f;
-    --bg-active:      #3c3836;
-    --bg-border:      #504945;
 
-    /* Foreground */
-    --fg-primary:     #fbf1c7;
-    --fg-muted:       #ebdbb2;
+    /* Gruvbox dark palette */
+    --bg-primary: #1d2021;
+    --bg-panel: #282828;
+    --bg-hover: #32302f;
+    --bg-active: #3c3836;
+    --bg-border: #504945;
+    --fg-primary: #fbf1c7;
+    --fg-muted: #ebdbb2;
     --fg-interactive: #458588;
+    --fg-success: #689d6a;
+    --fg-warning: #d79921;
+    --fg-error: #cc241d;
+    --accent: #8ec07c;
+    --accent-muted: #689d6a;
+    --selection: #282828;
+    --cursor: #7c6f64;
 
-    /* Semantic */
-    --fg-success:     #689d6a;
-    --fg-warning:     #d79921;
-    --fg-error:       #cc241d;
-
-    /* Extra */
-    --accent:         #8ec07c;
-    --accent-muted:   #689d6a;
-    --selection:      #282828;
-    --cursor:         #7c6f64;
+    /* Default fonts */
+    --font-ui: "Roboto Serif", serif;
+    --font-content: "Atkinson Hyperlegible", sans-serif;
+    --font-mono: "MartianMono NF", monospace;
 }

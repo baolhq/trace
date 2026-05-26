@@ -1,0 +1,58 @@
+@font-face {
+    font-family: "Roboto Serif";
+    src: url("/fonts/RobotoSerif-Regular.ttf");
+}
+
+@font-face {
+    font-family: "Roboto Serif";
+    src: url("/fonts/RobotoSerif-Bold.ttf");
+    font-weight: bold;
+}
+
+@font-face {
+    font-family: "Roboto Serif";
+    src: url("/fonts/RobotoSerif-Italic.ttf");
+    font-style: italic;
+}
+
+@font-face {
+    font-family: "Roboto Serif";
+    src: url("/fonts/RobotoSerif-BoldItalic.ttf");
+    font-weight: bold;
+    font-style: italic;
+}
+
+@font-face {
+    font-family: "Atkinson Hyperlegible";
+    src: url("/fonts/AtkinsonHyperlegible-Regular.ttf");
+}
+
+@font-face {
+    font-family: "Atkinson Hyperlegible";
+    src: url("/fonts/AtkinsonHyperlegible-Bold.ttf");
+    font-weight: bold;
+}
+
+@font-face {
+    font-family: "Atkinson Hyperlegible";
+    src: url("/fonts/AtkinsonHyperlegible-Italic.ttf");
+    font-style: italic;
+}
+
+@font-face {
+    font-family: "Atkinson Hyperlegible";
+    src: url("/fonts/AtkinsonHyperlegible-BoldItalic.ttf");
+    font-weight: bold;
+    font-style: italic;
+}
+
+@font-face {
+    font-family: "MartianMono NF";
+    src: url("/fonts/MartianMonoNF-Regular.ttf");
+}
+
+@font-face {
+    font-family: "MartianMono NF";
+    src: url("/fonts/MartianMonoNF-Bold.ttf");
+    font-weight: bold;
+}

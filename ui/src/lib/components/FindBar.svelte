@@ -316,7 +316,6 @@
 
     .opt-label {
         font-size: 0.72rem;
-        font-family: ui-monospace, monospace;
         font-weight: 600;
         line-height: 1;
         letter-spacing: 0;

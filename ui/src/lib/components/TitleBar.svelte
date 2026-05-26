@@ -559,7 +559,6 @@
         background: transparent;
         color: var(--fg-primary);
         font-size: 0.8rem;
-        font-family: inherit;
         outline: none;
         text-align: center;
         padding: 0;
@@ -606,7 +605,6 @@
         padding: 0.38rem 0.7rem;
         cursor: pointer;
         color: var(--fg-muted);
-        font-family: inherit;
     }
 
     .dropdown-item:hover {
