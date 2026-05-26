@@ -47,12 +47,12 @@
 }
 
 @font-face {
-    font-family: "MartianMono NF";
-    src: url("/fonts/MartianMonoNF-Regular.ttf");
+    font-family: "Martian Mono";
+    src: url("/fonts/MartianMonoCondensed-Regular.ttf");
 }
 
 @font-face {
-    font-family: "MartianMono NF";
-    src: url("/fonts/MartianMonoNF-Bold.ttf");
+    font-family: "Martian Mono";
+    src: url("/fonts/MartianMonoCondensed-Bold.ttf");
     font-weight: bold;
 }
