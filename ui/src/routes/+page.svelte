@@ -55,17 +55,15 @@
         });
 
         const offs = [
-            keybindings.on("app.new-trace", () => notes.createUntitledNode()),
-            keybindings.on("app.search", () => (sidebarMode = "search")),
-            keybindings.on(
-                "app.sidebar.traces",
-                () => (sidebarMode = "traces"),
+            keybindings.on("editor.new-trace", () =>
+                notes.createUntitledNode(),
             ),
-            keybindings.on(
-                "app.sidebar.search",
-                () => (sidebarMode = "search"),
-            ),
-            keybindings.on("app.focus-editor", () => {
+            keybindings.on("editor.journal", () => (sidebarMode = "journal")),
+            keybindings.on("panel.outlines", () => (sidebarMode = "outlines")),
+            keybindings.on("panel.search", () => (sidebarMode = "search")),
+            keybindings.on("panel.traces", () => (sidebarMode = "traces")),
+            keybindings.on("panel.search", () => (sidebarMode = "search")),
+            keybindings.on("app.focus-content", () => {
                 document.querySelector<HTMLElement>(".ProseMirror")?.focus();
             }),
             keybindings.on("editor.find", () => {

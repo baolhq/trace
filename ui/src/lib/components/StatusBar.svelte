@@ -32,7 +32,7 @@
 
 <div class="statusbar">
     <div class="statusbar-section statusbar-left">
-        <Tooltip description="Journal" shortcut={{ alt: true, key: "1" }}>
+        <Tooltip description="Journal" shortcut={{ alt: true, key: "j" }}>
             <button
                 class="mode-btn"
                 class:active={sidebarMode === "journal"}
@@ -41,7 +41,7 @@
                 <JournalIcon height="1em" />
             </button>
         </Tooltip>
-        <Tooltip description="Traces" shortcut={{ alt: true, key: "2" }}>
+        <Tooltip description="Traces" shortcut={{ alt: true, key: "t" }}>
             <button
                 class="mode-btn"
                 class:active={sidebarMode === "traces"}
@@ -50,7 +50,7 @@
                 <TraceIcon height="1em" />
             </button>
         </Tooltip>
-        <Tooltip description="Outline" shortcut={{ alt: true, key: "3" }}>
+        <Tooltip description="Outline" shortcut={{ alt: true, key: "o" }}>
             <button
                 class="mode-btn"
                 class:active={sidebarMode === "outlines"}
@@ -59,7 +59,10 @@
                 <OutlinesIcon height="1em" />
             </button>
         </Tooltip>
-        <Tooltip description="Search" shortcut={{ alt: true, key: "4" }}>
+        <Tooltip
+            description="Search"
+            shortcut={{ ctrl: true, shift: true, key: "f" }}
+        >
             <button
                 class="mode-btn"
                 class:active={sidebarMode === "search"}
