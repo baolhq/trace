@@ -290,8 +290,6 @@
         flex: 1;
         min-height: 0;
         overflow-y: auto;
-        scrollbar-width: thin;
-        scrollbar-color: var(--bg-border) transparent;
     }
 
     .search-status {

@@ -27,7 +27,7 @@
         };
     }
 
-    let sidebarMode: "journal" | "traces" | "search" | "outlines" =
+    let sidebarMode: "journal" | "traces" | "search" | "outlines" | null =
         $state("traces");
     let rightPanelMode: "links" | "backlinks" | null = $state(null);
     let findBarOpen = $state(false);
@@ -38,6 +38,14 @@
 
     let unlisten: (() => void) | undefined;
     let unregisterKeybindings: (() => void) | undefined;
+
+    function toggleSidebar(tab: "journal" | "traces" | "search" | "outlines") {
+        sidebarMode = sidebarMode === tab ? null : tab;
+    }
+
+    function toggleRightPanel(tab: "links" | "backlinks") {
+        rightPanelMode = rightPanelMode === tab ? null : tab;
+    }
 
     onMount(async () => {
         await new Promise(requestAnimationFrame);
@@ -58,11 +66,14 @@
             keybindings.on("editor.new-trace", () =>
                 notes.createUntitledNode(),
             ),
-            keybindings.on("editor.journal", () => (sidebarMode = "journal")),
-            keybindings.on("panel.outlines", () => (sidebarMode = "outlines")),
-            keybindings.on("panel.search", () => (sidebarMode = "search")),
-            keybindings.on("panel.traces", () => (sidebarMode = "traces")),
-            keybindings.on("panel.search", () => (sidebarMode = "search")),
+            keybindings.on("editor.journal", () => toggleSidebar("journal")),
+            keybindings.on("panel.traces", () => toggleSidebar("traces")),
+            keybindings.on("panel.outlines", () => toggleSidebar("outlines")),
+            keybindings.on("panel.search", () => toggleSidebar("search")),
+            keybindings.on("panel.links", () => toggleRightPanel("links")),
+            keybindings.on("panel.backlinks", () =>
+                toggleRightPanel("backlinks"),
+            ),
             keybindings.on("app.focus-content", () => {
                 document.querySelector<HTMLElement>(".ProseMirror")?.focus();
             }),
@@ -114,21 +125,23 @@
         />
 
         <div class="shell">
-            <aside class="sidebar">
-                {#if notes.error}
-                    <p class="sidebar-error">{notes.error}</p>
-                {/if}
+            {#if sidebarMode}
+                <aside class="sidebar">
+                    {#if notes.error}
+                        <p class="sidebar-error">{notes.error}</p>
+                    {/if}
 
-                {#if sidebarMode === "traces"}
-                    <div class="sidebar-panels">
-                        <FavoritesPanel />
-                        <LogsPanel />
-                        <RecentsPanel />
-                    </div>
-                {:else if sidebarMode === "search"}
-                    <SearchPanel />
-                {/if}
-            </aside>
+                    {#if sidebarMode === "traces"}
+                        <div class="sidebar-panels">
+                            <FavoritesPanel />
+                            <LogsPanel />
+                            <RecentsPanel />
+                        </div>
+                    {:else if sidebarMode === "search"}
+                        <SearchPanel />
+                    {/if}
+                </aside>
+            {/if}
 
             <main class="main-pane">
                 {#if notes.viewMode?.kind === "editor" && notes.activeDoc && notes.activeNodeId}
@@ -207,6 +220,8 @@
         font-feature-settings: "lnum", "tnum";
         background: var(--bg-primary);
         color: var(--fg-primary);
+        scrollbar-width: thin;
+        scrollbar-color: var(--bg-border) transparent;
     }
 
     .app-root {

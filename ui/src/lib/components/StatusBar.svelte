@@ -16,16 +16,20 @@
         onRightPanelChange,
         saving,
     }: {
-        sidebarMode: "journal" | "traces" | "search" | "outlines";
+        sidebarMode: "journal" | "traces" | "search" | "outlines" | null;
         onModeChange: (
-            mode: "journal" | "traces" | "search" | "outlines",
+            mode: "journal" | "traces" | "search" | "outlines" | null,
         ) => void;
         rightPanelMode: "links" | "backlinks" | null;
         onRightPanelChange: (mode: "links" | "backlinks" | null) => void;
         saving: boolean;
     } = $props();
 
-    function togglePanel(tab: "links" | "backlinks") {
+    function toggleSidebar(tab: "journal" | "traces" | "search" | "outlines") {
+        onModeChange(sidebarMode === tab ? null : tab);
+    }
+
+    function toggleRightPanel(tab: "links" | "backlinks") {
         onRightPanelChange(rightPanelMode === tab ? null : tab);
     }
 </script>
@@ -36,7 +40,7 @@
             <button
                 class="mode-btn"
                 class:active={sidebarMode === "journal"}
-                onclick={() => onModeChange("journal")}
+                onclick={() => toggleSidebar("journal")}
             >
                 <JournalIcon height="1em" />
             </button>
@@ -45,7 +49,7 @@
             <button
                 class="mode-btn"
                 class:active={sidebarMode === "traces"}
-                onclick={() => onModeChange("traces")}
+                onclick={() => toggleSidebar("traces")}
             >
                 <TraceIcon height="1em" />
             </button>
@@ -54,7 +58,7 @@
             <button
                 class="mode-btn"
                 class:active={sidebarMode === "outlines"}
-                onclick={() => onModeChange("outlines")}
+                onclick={() => toggleSidebar("outlines")}
             >
                 <OutlinesIcon height="1em" />
             </button>
@@ -66,7 +70,7 @@
             <button
                 class="mode-btn"
                 class:active={sidebarMode === "search"}
-                onclick={() => onModeChange("search")}
+                onclick={() => toggleSidebar("search")}
             >
                 <SearchIcon height="1em" />
             </button>
@@ -83,7 +87,7 @@
             <button
                 class="status-btn"
                 class:active={rightPanelMode === "links"}
-                onclick={() => togglePanel("links")}
+                onclick={() => toggleRightPanel("links")}
             >
                 <LinkIcon height="1em" />
             </button>
@@ -92,7 +96,7 @@
             <button
                 class="status-btn"
                 class:active={rightPanelMode === "backlinks"}
-                onclick={() => togglePanel("backlinks")}
+                onclick={() => toggleRightPanel("backlinks")}
             >
                 <BacklinkIcon height="1em" />
             </button>
