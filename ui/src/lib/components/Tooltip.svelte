@@ -1,9 +1,8 @@
 <script lang="ts">
-    import MacCommandIcon from "@iconify-svelte/carbon/mac-command";
     import type { KeyCombo } from "$lib/keybindings";
     import type { Snippet } from "svelte";
 
-    type ShortcutPart = { kind: "cmd" } | { kind: "text"; label: string };
+    type ShortcutPart = { kind: "text"; label: string };
 
     let {
         description,
@@ -30,7 +29,7 @@
     function buildParts(combo: KeyCombo | undefined): ShortcutPart[] {
         if (!combo) return [];
         const result: ShortcutPart[] = [];
-        if (combo.ctrl || combo.meta) result.push({ kind: "cmd" });
+        if (combo.ctrl) result.push({ kind: "text", label: "Ctrl" });
         if (combo.shift) result.push({ kind: "text", label: "Shift" });
         if (combo.alt) result.push({ kind: "text", label: "Alt" });
         result.push({
@@ -92,12 +91,8 @@
             {#if parts.length}
                 <span class="shortcut">
                     {#each parts as part, i}
-                        {#if i > 0}<span class="sep">+</span>{/if}
-                        {#if part.kind === "cmd"}
-                            <MacCommandIcon height="1em" />
-                        {:else}
-                            <span class="key">{part.label}</span>
-                        {/if}
+                        {#if i > 0}<span class="sep">-</span>{/if}
+                        <span class="key">{part.label}</span>
                     {/each}
                 </span>
             {/if}
@@ -118,8 +113,8 @@
         transition: opacity 0.12s ease;
         display: flex;
         align-items: center;
-        gap: 0.75rem;
-        padding: 0.25rem 0.55rem;
+        gap: 1rem;
+        padding: 0.4rem 0.55rem;
         border-radius: 5px;
         background: var(--bg-primary);
         border: 1px solid var(--bg-border);
@@ -136,11 +131,6 @@
         display: flex;
         align-items: center;
         gap: 0.15rem;
-    }
-
-    .sep {
-        opacity: 0.5;
-        font-size: 0.65rem;
     }
 
     .key {

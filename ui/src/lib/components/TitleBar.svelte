@@ -5,6 +5,7 @@
     import StarIcon from "@iconify-svelte/carbon/star";
     import StarFilledIcon from "@iconify-svelte/carbon/star-filled";
     import MacCommandIcon from "@iconify-svelte/carbon/mac-command";
+    import Tooltip from "$lib/components/Tooltip.svelte";
 
     interface ActiveMeta {
         id: string;
@@ -272,14 +273,20 @@
             class:fav-on={!!activeMeta?.is_favorite}
             onclick={activeMeta ? onToggleFavorite : undefined}
             disabled={!activeMeta}
-            title={activeMeta?.is_favorite ? "Unfavorite" : "Add to favorites"}
             tabindex="-1"
         >
-            {#if activeMeta?.is_favorite}
-                <StarFilledIcon height="1em" />
-            {:else}
-                <StarIcon height="1em" />
-            {/if}
+            <Tooltip
+                description={activeMeta?.is_favorite
+                    ? "Unfavorite"
+                    : "Favorite"}
+                shortcut={{ alt: true, key: "f" }}
+            >
+                {#if activeMeta?.is_favorite}
+                    <StarFilledIcon height="1em" />
+                {:else}
+                    <StarIcon height="1em" />
+                {/if}
+            </Tooltip>
         </button>
 
         <!-- Filename / Search (flex center) -->
@@ -290,28 +297,33 @@
             onclick={() => openDropdown("search")}
             onkeydown={(e) => e.key === "Enter" && openDropdown("search")}
         >
-            {#if isOpen}
-                <input
-                    class="search-input"
-                    bind:this={searchInputEl}
-                    bind:value={query}
-                    onkeydown={handleInputKey}
-                    onclick={(e) => e.stopPropagation()}
-                    placeholder={dropdownMode === "commands"
-                        ? "Run a command…"
-                        : dropdownMode === "prompt"
-                          ? promptStep === 0
-                              ? "Node count (default: 100)"
-                              : "Destination"
-                          : "Search notes…"}
-                    autocomplete="off"
-                    spellcheck={false}
-                />
-            {:else}
-                <span class="filename" class:placeholder={!activeMeta}>
-                    {activeMeta ? activeMeta.title : "Open a note…"}
-                </span>
-            {/if}
+            <Tooltip
+                description="Search file"
+                shortcut={{ ctrl: true, key: "p" }}
+            >
+                {#if isOpen}
+                    <input
+                        class="search-input"
+                        bind:this={searchInputEl}
+                        bind:value={query}
+                        onkeydown={handleInputKey}
+                        onclick={(e) => e.stopPropagation()}
+                        placeholder={dropdownMode === "commands"
+                            ? "Run a command…"
+                            : dropdownMode === "prompt"
+                              ? promptStep === 0
+                                  ? "Node count (default: 100)"
+                                  : "Destination"
+                              : "Search notes…"}
+                        autocomplete="off"
+                        spellcheck={false}
+                    />
+                {:else}
+                    <span class="filename" class:placeholder={!activeMeta}>
+                        {activeMeta ? activeMeta.title : "Open a note…"}
+                    </span>
+                {/if}
+            </Tooltip>
         </div>
 
         <!-- Command palette icon (fixed width, right) -->
@@ -322,10 +334,14 @@
                 e.stopPropagation();
                 openDropdown("commands");
             }}
-            title="Command palette"
             tabindex="-1"
         >
-            <MacCommandIcon height="1em" />
+            <Tooltip
+                description="Command palette"
+                shortcut={{ ctrl: true, shift: true, key: "p" }}
+            >
+                <MacCommandIcon height="1em" />
+            </Tooltip>
         </button>
 
         <!-- Dropdown -->
@@ -624,14 +640,13 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        cursor: pointer;
         padding: 0 4px;
         overflow: hidden;
+        cursor: text;
     }
 
     .filename {
         font-size: 0.8rem;
-        font-weight: 500;
         color: var(--cursor);
         overflow: hidden;
         text-overflow: ellipsis;
@@ -639,11 +654,6 @@
         width: 100%;
         text-align: center;
         pointer-events: none;
-    }
-
-    .filename.placeholder {
-        color: var(--cursor);
-        font-weight: 400;
     }
 
     .search-input {

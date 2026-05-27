@@ -1,4 +1,5 @@
 <script lang="ts">
+    import JournalIcon from "@iconify-svelte/lucide/scroll-text";
     import TraceIcon from "@iconify-svelte/pajamas/file-tree";
     import SearchIcon from "@iconify-svelte/carbon/search";
     import OutlinesIcon from "@iconify-svelte/lucide/list-tree";
@@ -15,8 +16,10 @@
         onRightPanelChange,
         saving,
     }: {
-        sidebarMode: "traces" | "search" | "outlines";
-        onModeChange: (mode: "traces" | "search" | "outlines") => void;
+        sidebarMode: "journal" | "traces" | "search" | "outlines";
+        onModeChange: (
+            mode: "journal" | "traces" | "search" | "outlines",
+        ) => void;
         rightPanelMode: "links" | "backlinks" | null;
         onRightPanelChange: (mode: "links" | "backlinks" | null) => void;
         saving: boolean;
@@ -29,7 +32,16 @@
 
 <div class="statusbar">
     <div class="statusbar-section statusbar-left">
-        <Tooltip description="Traces" shortcut={{ ctrl: true, key: "1" }}>
+        <Tooltip description="Journal" shortcut={{ alt: true, key: "1" }}>
+            <button
+                class="mode-btn"
+                class:active={sidebarMode === "journal"}
+                onclick={() => onModeChange("journal")}
+            >
+                <JournalIcon height="1em" />
+            </button>
+        </Tooltip>
+        <Tooltip description="Traces" shortcut={{ alt: true, key: "2" }}>
             <button
                 class="mode-btn"
                 class:active={sidebarMode === "traces"}
@@ -38,7 +50,7 @@
                 <TraceIcon height="1em" />
             </button>
         </Tooltip>
-        <Tooltip description="Outline">
+        <Tooltip description="Outline" shortcut={{ alt: true, key: "3" }}>
             <button
                 class="mode-btn"
                 class:active={sidebarMode === "outlines"}
@@ -47,7 +59,7 @@
                 <OutlinesIcon height="1em" />
             </button>
         </Tooltip>
-        <Tooltip description="Search" shortcut={{ ctrl: true, key: "2" }}>
+        <Tooltip description="Search" shortcut={{ alt: true, key: "4" }}>
             <button
                 class="mode-btn"
                 class:active={sidebarMode === "search"}
@@ -64,7 +76,7 @@
                 {formatCombo(keybindings.pendingChord)}...
             </span>
         {/if}
-        <Tooltip description="Links">
+        <Tooltip description="Links" shortcut={{ alt: true, key: "l" }}>
             <button
                 class="status-btn"
                 class:active={rightPanelMode === "links"}
@@ -73,7 +85,7 @@
                 <LinkIcon height="1em" />
             </button>
         </Tooltip>
-        <Tooltip description="Backlinks">
+        <Tooltip description="Backlinks" shortcut={{ alt: true, key: "b" }}>
             <button
                 class="status-btn"
                 class:active={rightPanelMode === "backlinks"}
@@ -104,7 +116,6 @@
     }
 
     .chord-hint {
-        font-size: 0.7rem;
         font-weight: 600;
         color: var(--cursor);
         letter-spacing: 0.05em;
@@ -124,7 +135,6 @@
     .mode-btn {
         background: none;
         border: none;
-        font-size: 0.7rem;
         font-weight: 500;
         letter-spacing: 0.04em;
         color: var(--cursor);

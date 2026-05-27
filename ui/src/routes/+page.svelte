@@ -27,7 +27,8 @@
         };
     }
 
-    let sidebarMode: "traces" | "search" | "outlines" = $state("traces");
+    let sidebarMode: "journal" | "traces" | "search" | "outlines" =
+        $state("traces");
     let rightPanelMode: "links" | "backlinks" | null = $state(null);
     let findBarOpen = $state(false);
     let findShowReplace = $state(false);
@@ -196,6 +197,10 @@
 <style>
     :global(*, *::before, *::after) {
         box-sizing: border-box;
+    }
+
+    :global(::selection) {
+        background: var(--selection);
     }
 
     :global(body) {
