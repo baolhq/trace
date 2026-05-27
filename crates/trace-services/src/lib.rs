@@ -4,5 +4,6 @@ pub mod link_service;
 pub mod log_service;
 pub mod node_service;
 pub mod search_service;
+pub mod settings_service;
 pub mod suggest_service;
 pub mod tag_service;

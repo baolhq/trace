@@ -11,12 +11,15 @@
     import RightPanel from "$lib/components/RightPanel.svelte";
     import StatusBar from "$lib/components/StatusBar.svelte";
     import ContextMenu from "$lib/components/ContextMenu.svelte";
+    import SettingsModal from "$lib/components/SettingsModal.svelte";
     import { notes } from "$lib/stores/notes.svelte";
     import { logs } from "$lib/stores/logs.svelte";
+    import { settings } from "$lib/stores/settings.svelte";
     import { keybindings } from "$lib/keybindings";
     import Spinner from "$lib/components/Spinner.svelte";
     import { getCurrentWindow } from "@tauri-apps/api/window";
     import { cubicIn } from "svelte/easing";
+    import type { SettingsScope } from "$lib/types";
 
     function growFade(_node: Element, { duration = 600 } = {}) {
         return {
@@ -35,6 +38,8 @@
     let fileSearchPing = $state(0);
     let commandPalettePing = $state(0);
     let backendReady = $state(false);
+    let settingsOpen = $state(false);
+    let settingsScope: SettingsScope = $state("global");
 
     let unlisten: (() => void) | undefined;
     let unregisterKeybindings: (() => void) | undefined;
@@ -56,6 +61,7 @@
             notes.loadRecents(),
             notes.loadFavorites(),
             logs.loadLogs(),
+            settings.load(),
         ]);
         unlisten = await listen("nodes_changed", () => {
             notes.loadRecents();
@@ -91,6 +97,16 @@
             }),
             keybindings.on("app.file-search", () => fileSearchPing++),
             keybindings.on("app.command-palette", () => commandPalettePing++),
+            keybindings.on("app.show-settings", () => {
+                if (settingsOpen) {
+                    settingsOpen = false;
+                    invoke("open_settings_file", {
+                        scope: settingsScope,
+                    }).catch(console.error);
+                } else {
+                    settingsOpen = true;
+                }
+            }),
         ];
         unregisterKeybindings = () => offs.forEach((off) => off());
     });
@@ -120,6 +136,7 @@
                 const log = logs.allLogs.find((l) => l.id === id);
                 if (log) logs.openLog({ ...log, children: [] });
             }}
+            onOpenSettings={() => (settingsOpen = true)}
             {fileSearchPing}
             {commandPalettePing}
         />
@@ -202,6 +219,14 @@
         </div>
     {/if}
 </div>
+
+<SettingsModal
+    bind:open={settingsOpen}
+    onOpenRawToml={(scope: SettingsScope) => {
+        settingsScope = scope;
+        invoke("open_settings_file", { scope }).catch(console.error);
+    }}
+/>
 
 <ContextMenu />
 

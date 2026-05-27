@@ -39,6 +39,7 @@
         onToggleFavorite,
         onNewNote,
         onOpenLog,
+        onOpenSettings,
         fileSearchPing = 0,
         commandPalettePing = 0,
     }: {
@@ -49,6 +50,7 @@
         onToggleFavorite: () => void;
         onNewNote?: () => void;
         onOpenLog?: (id: number) => void;
+        onOpenSettings?: () => void;
         fileSearchPing?: number;
         commandPalettePing?: number;
     } = $props();
@@ -151,9 +153,11 @@
         {
             id: "settings",
             label: "Settings",
-            hint: "coming soon",
-            available: false,
-            action: () => {},
+            available: true,
+            action: () => {
+                closeDropdown();
+                onOpenSettings?.();
+            },
         },
         {
             id: "dev-generate-vault",

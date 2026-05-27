@@ -20,5 +20,6 @@ serde = { version = "1", features = ["derive"] }
 tokio = { version = "1", features = ["full"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+toml = "0.8"
 walkdir = "2"
 xxhash-rust = { version = "0.8", features = ["xxh3"] }

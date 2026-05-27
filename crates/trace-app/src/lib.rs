@@ -13,6 +13,7 @@ use crate::commands::nodes::{
     open_node, rename_node, save_node, toggle_favorite,
 };
 use crate::commands::search::search_nodes_async;
+use crate::commands::settings::{get_settings, open_settings_file, save_settings};
 use crate::commands::suggest::{suggest_nodes, suggest_tags};
 use crate::commands::tags::{list_nodes_by_tag, list_tags};
 use crate::commands::window::backend_ready;
@@ -34,9 +35,21 @@ pub fn run() {
             std::fs::create_dir_all(&app_dir)?;
             let vault_path = app_dir.join("vault");
             let db_path = app_dir.join("metadata.db");
+            let vault_settings_path = app_dir.join("Settings.toml");
             std::fs::create_dir_all(&vault_path)?;
 
-            let state = startup::init(vault_path, db_path, app.handle().clone());
+            let global_settings_path = dirs::home_dir()
+                .unwrap_or_else(|| app_dir.clone())
+                .join(".trace")
+                .join("Settings.toml");
+
+            let state = startup::init(
+                vault_path,
+                db_path,
+                global_settings_path,
+                vault_settings_path,
+                app.handle().clone(),
+            );
             app.manage(state);
             Ok(())
         })
@@ -76,6 +89,10 @@ pub fn run() {
             // developer
             vault_path_cmd,
             gen_vault_cmd,
+            // settings
+            get_settings,
+            save_settings,
+            open_settings_file,
             // window
             backend_ready,
         ])

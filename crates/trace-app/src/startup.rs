@@ -4,8 +4,8 @@ use tauri::{AppHandle, Emitter};
 use tokio::sync::broadcast;
 use trace_services::{
     events::CoreEvent, link_service::LinkService, log_service::LogService,
-    node_service::NodeService, search_service::SearchService, suggest_service::SuggestService,
-    tag_service::TagService,
+    node_service::NodeService, search_service::SearchService, settings_service::SettingsService,
+    suggest_service::SuggestService, tag_service::TagService,
 };
 use trace_store::db::{migrations, Database};
 use trace_workers::{FileSync, Scanner, Watcher};
@@ -14,7 +14,13 @@ use tracing::{info, instrument};
 use crate::state::AppState;
 
 #[instrument(skip_all, fields(db = ?db_path))]
-pub fn init(vault_path: PathBuf, db_path: PathBuf, app_handle: AppHandle) -> AppState {
+pub fn init(
+    vault_path: PathBuf,
+    db_path: PathBuf,
+    global_settings_path: PathBuf,
+    vault_settings_path: PathBuf,
+    app_handle: AppHandle,
+) -> AppState {
     info!("startup: opening database at {:?}", db_path);
     let db = Arc::new(Database::open(&db_path).expect("failed to open database"));
     {
@@ -77,6 +83,7 @@ pub fn init(vault_path: PathBuf, db_path: PathBuf, app_handle: AppHandle) -> App
     suggest_service.rebuild();
 
     let search_service = SearchService::new(Arc::clone(&db), vault_path.clone());
+    let settings_service = SettingsService::new(global_settings_path, vault_settings_path);
 
     info!("startup: all services ready");
 
@@ -90,6 +97,7 @@ pub fn init(vault_path: PathBuf, db_path: PathBuf, app_handle: AppHandle) -> App
         log_service,
         suggest_service,
         search_service,
+        settings_service,
         ready_rx,
     )
 }

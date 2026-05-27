@@ -6,8 +6,8 @@ use std::{
 use tokio::sync::{broadcast, watch};
 use trace_services::{
     events::CoreEvent, link_service::LinkService, log_service::LogService,
-    node_service::NodeService, search_service::SearchService, suggest_service::SuggestService,
-    tag_service::TagService,
+    node_service::NodeService, search_service::SearchService, settings_service::SettingsService,
+    suggest_service::SuggestService, tag_service::TagService,
 };
 use trace_store::db::Database;
 
@@ -21,6 +21,7 @@ pub struct AppState {
     pub log_service: LogService,
     pub suggest_service: SuggestService,
     pub search_service: SearchService,
+    pub settings_service: SettingsService,
     pub search_epoch: Arc<AtomicU64>,
     pub ready_rx: watch::Receiver<bool>,
 }
@@ -37,6 +38,7 @@ impl AppState {
         log_service: LogService,
         suggest_service: SuggestService,
         search_service: SearchService,
+        settings_service: SettingsService,
         ready_rx: watch::Receiver<bool>,
     ) -> Self {
         Self {
@@ -49,6 +51,7 @@ impl AppState {
             log_service,
             suggest_service,
             search_service,
+            settings_service,
             search_epoch: Arc::new(AtomicU64::new(0)),
             ready_rx,
         }
