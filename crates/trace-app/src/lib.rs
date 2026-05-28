@@ -13,7 +13,7 @@ use crate::commands::nodes::{
     open_node, rename_node, save_node, toggle_favorite,
 };
 use crate::commands::search::search_nodes_async;
-use crate::commands::settings::{get_settings, open_settings_file, save_settings};
+use crate::commands::settings::{get_settings, list_system_fonts, open_settings_file, save_settings};
 use crate::commands::suggest::{suggest_nodes, suggest_tags};
 use crate::commands::tags::{list_nodes_by_tag, list_tags};
 use crate::commands::window::backend_ready;
@@ -93,6 +93,7 @@ pub fn run() {
             get_settings,
             save_settings,
             open_settings_file,
+            list_system_fonts,
             // window
             backend_ready,
         ])

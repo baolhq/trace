@@ -1,8 +1,10 @@
 <script lang="ts">
+    import { invoke } from "@tauri-apps/api/core";
     import { settings } from "$lib/stores/settings.svelte";
     import { DEFAULT_SETTINGS } from "$lib/types";
     import type { Settings, SettingsScope } from "$lib/types";
     import Tooltip from "$lib/components/Tooltip.svelte";
+    import CustomSelect from "$lib/components/CustomSelect.svelte";
 
     let {
         open = $bindable(false),
@@ -41,6 +43,11 @@
     function handleKeydown(e: KeyboardEvent) {
         if (!open) return;
         if (e.key === "Escape") {
+            if (langOpen) {
+                langOpen = false;
+                e.stopPropagation();
+                return;
+            }
             open = false;
             e.stopPropagation();
         }
@@ -48,8 +55,6 @@
 
     let modalEl: HTMLElement | null = $state(null);
 
-    // Close when clicking outside the modal box. Deferred one tick so the
-    // same click that opened the modal doesn't immediately close it.
     $effect(() => {
         if (!open) return;
         let active = false;
@@ -57,7 +62,7 @@
             active = true;
         }, 0);
         function onDocClick(e: MouseEvent) {
-            if (active && modalEl && !modalEl.contains(e.target as Node)) {
+            if (active && modalEl && !e.composedPath().includes(modalEl)) {
                 open = false;
             }
         }
@@ -67,6 +72,209 @@
             document.removeEventListener("click", onDocClick);
         };
     });
+
+    // ── Fonts ─────────────────────────────────────────────────────────────────
+
+    let systemFonts: string[] = $state([]);
+    let fontsLoaded = false;
+
+    $effect(() => {
+        if (!open || fontsLoaded) return;
+        fontsLoaded = true;
+        invoke<string[]>("list_system_fonts")
+            .then((fonts) => {
+                systemFonts = fonts;
+            })
+            .catch(() => {
+                systemFonts = [];
+            });
+    });
+
+    function getFontName(cssValue: string): string {
+        return cssValue
+            .split(",")[0]
+            .trim()
+            .replace(/^['"]|['"]$/g, "");
+    }
+
+    function buildFont(name: string, fallback: string): string {
+        if (!name) return fallback;
+        return name.includes(" ")
+            ? `'${name}', ${fallback}`
+            : `${name}, ${fallback}`;
+    }
+
+    // ── Static option lists ───────────────────────────────────────────────────
+
+    const THEMES = [{ value: "trace-dark", label: "Trace Dark" }];
+
+    const LINE_HEIGHT_OPTIONS = [
+        { value: "compact", label: "Compact" },
+        { value: "standard", label: "Standard" },
+        { value: "comfortable", label: "Comfortable" },
+    ];
+
+    const DATE_FORMATS = [
+        { value: "MMMM d, yyyy", label: "January 5, 2024" },
+        { value: "MMM d, yyyy", label: "Jan 5, 2024" },
+        { value: "yyyy-MM-dd", label: "2024-01-05" },
+        { value: "MM/dd/yyyy", label: "01/05/2024" },
+        { value: "dd/MM/yyyy", label: "05/01/2024" },
+        { value: "d MMMM yyyy", label: "5 January 2024" },
+        { value: "yyyy/MM/dd", label: "2024/01/05" },
+    ];
+
+    const EPOCH_OPTIONS = [
+        { value: "seconds", label: "Seconds (10 digits)" },
+        { value: "milliseconds", label: "Milliseconds (13 digits)" },
+    ];
+
+    const BACKUP_OPTIONS = [
+        { value: "daily", label: "Daily" },
+        { value: "weekly", label: "Weekly" },
+        { value: "monthly", label: "Monthly" },
+    ];
+
+    const ZEN_OPTIONS = [
+        { value: "show", label: "Show" },
+        { value: "peek", label: "Peek" },
+        { value: "hide", label: "Hide" },
+    ];
+
+    // ── Number stepper ────────────────────────────────────────────────────────
+
+    let editingNumber: keyof Settings | null = $state(null);
+
+    function stepNum(
+        key: keyof Settings,
+        val: number,
+        dir: 1 | -1,
+        step: number,
+        min: number,
+        max: number,
+    ) {
+        const decimals = step < 1 ? 2 : 0;
+        const next = parseFloat((val + dir * step).toFixed(decimals));
+        set(key, Math.min(max, Math.max(min, next)) as Settings[typeof key]);
+    }
+
+    function commitNumber(
+        key: keyof Settings,
+        rawValue: string,
+        step: number,
+        min: number,
+        max: number,
+    ) {
+        const n = parseFloat(rawValue);
+        if (!isNaN(n)) {
+            const decimals = step < 1 ? 2 : 0;
+            set(
+                key,
+                Math.min(
+                    max,
+                    Math.max(min, parseFloat(n.toFixed(decimals))),
+                ) as Settings[typeof key],
+            );
+        }
+        editingNumber = null;
+    }
+
+    function fmtNum(val: number, step: number): string {
+        return step < 1 ? String(parseFloat(val.toFixed(2))) : String(val);
+    }
+
+    // ── Languages ─────────────────────────────────────────────────────────────
+
+    const LANGUAGES = [
+        { code: "en-US", label: "English (US)" },
+        { code: "en-GB", label: "English (UK)" },
+        { code: "en-AU", label: "English (AU)" },
+        { code: "fr", label: "French" },
+        { code: "de", label: "German" },
+        { code: "es", label: "Spanish" },
+        { code: "it", label: "Italian" },
+        { code: "pt-BR", label: "Portuguese (BR)" },
+        { code: "pt-PT", label: "Portuguese (PT)" },
+        { code: "nl", label: "Dutch" },
+        { code: "pl", label: "Polish" },
+        { code: "sv", label: "Swedish" },
+        { code: "da", label: "Danish" },
+        { code: "fi", label: "Finnish" },
+        { code: "nb", label: "Norwegian" },
+        { code: "ru", label: "Russian" },
+        { code: "uk", label: "Ukrainian" },
+        { code: "ja", label: "Japanese" },
+        { code: "zh-CN", label: "Chinese (Simplified)" },
+        { code: "ko", label: "Korean" },
+        { code: "ar", label: "Arabic" },
+    ];
+
+    const availableLangs = $derived(
+        LANGUAGES.filter((l) => !current.spellcheck_languages.includes(l.code)),
+    );
+
+    let langOpen = $state(false);
+    let langEl: HTMLElement | null = $state(null);
+    let langTriggerEl: HTMLButtonElement | null = $state(null);
+    let langListEl: HTMLElement | null = $state(null);
+    let langPos = $state({ top: 0, right: 0 });
+    let contentEl: HTMLElement | null = $state(null);
+
+    function openLang() {
+        if (langOpen) {
+            langOpen = false;
+            return;
+        }
+        if (langTriggerEl) {
+            const rect = langTriggerEl.getBoundingClientRect();
+            const dropdownH = Math.min(availableLangs.length * 28 + 10, 216);
+            const spaceBelow = window.innerHeight - rect.bottom;
+            const top =
+                spaceBelow >= dropdownH + 4
+                    ? rect.bottom + 4
+                    : Math.max(8, rect.top - dropdownH - 4);
+            langPos = { top, right: window.innerWidth - rect.right };
+        }
+        langOpen = true;
+    }
+
+    $effect(() => {
+        if (!langOpen) return;
+        function onClick(e: MouseEvent) {
+            const t = e.target as Node;
+            const inTrigger = langEl?.contains(t) ?? false;
+            const inList = langListEl?.contains(t) ?? false;
+            if (!inTrigger && !inList) langOpen = false;
+        }
+        document.addEventListener("click", onClick);
+        return () => document.removeEventListener("click", onClick);
+    });
+
+    $effect(() => {
+        if (!langOpen || !contentEl) return;
+        const el = contentEl;
+        function onScroll(e: Event) {
+            if (langListEl?.contains(e.target as Node)) return;
+            langOpen = false;
+        }
+        el.addEventListener("scroll", onScroll);
+        return () => el.removeEventListener("scroll", onScroll);
+    });
+
+    $effect(() => {
+        void activeTab;
+        langOpen = false;
+    });
+
+    function toggleLang(code: string) {
+        const langs = current.spellcheck_languages;
+        set(
+            "spellcheck_languages",
+            langs.includes(code)
+                ? langs.filter((l) => l !== code)
+                : [...langs, code],
+        );
+    }
 </script>
 
 <!-- Must be at top level, not inside {#if} -->
@@ -156,105 +364,71 @@
                     {/each}
                 </nav>
 
-                <div class="content">
+                <div class="content" bind:this={contentEl}>
                     {#if activeTab === "appearance"}
                         <h3 class="section-title">Fonts</h3>
 
                         <div class="row">
                             <span class="row-label">UI font</span>
+                            {@render ResetBtn("ui_font")}
                             <div class="row-control">
-                                <input
-                                    class="text-input"
-                                    value={current.ui_font}
-                                    oninput={(e) =>
-                                        set("ui_font", e.currentTarget.value)}
-                                />
-                                {@render ResetBtn("ui_font")}
+                                {@render FontSelect("ui_font", "serif")}
                             </div>
                         </div>
                         <div class="row">
                             <span class="row-label">UI font size</span>
+                            {@render ResetBtn("ui_font_size")}
                             <div class="row-control">
-                                <input
-                                    class="number-input"
-                                    type="number"
-                                    value={current.ui_font_size}
-                                    min={8}
-                                    max={32}
-                                    oninput={(e) => {
-                                        const n = parseInt(
-                                            e.currentTarget.value,
-                                        );
-                                        if (!isNaN(n)) set("ui_font_size", n);
-                                    }}
-                                />
-                                {@render ResetBtn("ui_font_size")}
+                                {@render Stepper(
+                                    "ui_font_size",
+                                    current.ui_font_size,
+                                    8,
+                                    32,
+                                    1,
+                                )}
                             </div>
                         </div>
                         <div class="row">
                             <span class="row-label">Content font</span>
+                            {@render ResetBtn("content_font")}
                             <div class="row-control">
-                                <input
-                                    class="text-input"
-                                    value={current.content_font}
-                                    oninput={(e) =>
-                                        set(
-                                            "content_font",
-                                            e.currentTarget.value,
-                                        )}
-                                />
-                                {@render ResetBtn("content_font")}
+                                {@render FontSelect(
+                                    "content_font",
+                                    "sans-serif",
+                                )}
                             </div>
                         </div>
                         <div class="row">
                             <span class="row-label">Content font size</span>
+                            {@render ResetBtn("content_font_size")}
                             <div class="row-control">
-                                <input
-                                    class="number-input"
-                                    type="number"
-                                    value={current.content_font_size}
-                                    min={8}
-                                    max={32}
-                                    oninput={(e) => {
-                                        const n = parseInt(
-                                            e.currentTarget.value,
-                                        );
-                                        if (!isNaN(n))
-                                            set("content_font_size", n);
-                                    }}
-                                />
-                                {@render ResetBtn("content_font_size")}
+                                {@render Stepper(
+                                    "content_font_size",
+                                    current.content_font_size,
+                                    8,
+                                    32,
+                                    1,
+                                )}
                             </div>
                         </div>
                         <div class="row">
                             <span class="row-label">Mono font</span>
+                            {@render ResetBtn("mono_font")}
                             <div class="row-control">
-                                <input
-                                    class="text-input"
-                                    value={current.mono_font}
-                                    oninput={(e) =>
-                                        set("mono_font", e.currentTarget.value)}
-                                />
-                                {@render ResetBtn("mono_font")}
+                                {@render FontSelect("mono_font", "monospace")}
                             </div>
                         </div>
                         <div class="row">
                             <span class="row-label">Mono font size</span>
+                            {@render ResetBtn("mono_font_size")}
                             <div class="row-control">
-                                <input
-                                    class="number-input"
-                                    type="number"
-                                    value={current.mono_font_size}
-                                    min={8}
-                                    max={32}
-                                    oninput={(e) => {
-                                        const n = parseInt(
-                                            e.currentTarget.value,
-                                        );
-                                        if (!isNaN(n)) set("mono_font_size", n);
-                                    }}
-                                />
-                                {@render ResetBtn("mono_font_size")}
+                                {@render Stepper(
+                                    "mono_font_size",
+                                    current.mono_font_size,
+                                    8,
+                                    32,
+                                    1,
+                                )}
                             </div>
                         </div>
 
@@ -264,66 +438,51 @@
 
                         <div class="row">
                             <span class="row-label">Theme</span>
+                            {@render ResetBtn("theme")}
                             <div class="row-control">
-                                <input
-                                    class="text-input"
+                                <CustomSelect
                                     value={current.theme}
-                                    oninput={(e) =>
-                                        set("theme", e.currentTarget.value)}
+                                    options={THEMES}
+                                    onchange={(v) => set("theme", v)}
                                 />
-                                {@render ResetBtn("theme")}
                             </div>
                         </div>
                         <div class="row">
                             <span class="row-label">Zoom level</span>
+                            {@render ResetBtn("zoom_level")}
                             <div class="row-control">
-                                <input
-                                    class="number-input"
-                                    type="number"
-                                    value={current.zoom_level}
-                                    min={0.5}
-                                    max={3}
-                                    step={0.1}
-                                    oninput={(e) => {
-                                        const n = parseFloat(
-                                            e.currentTarget.value,
-                                        );
-                                        if (!isNaN(n)) set("zoom_level", n);
-                                    }}
-                                />
-                                {@render ResetBtn("zoom_level")}
+                                {@render Stepper(
+                                    "zoom_level",
+                                    current.zoom_level,
+                                    0.25,
+                                    5.0,
+                                    0.25,
+                                )}
                             </div>
                         </div>
                         <div class="row">
                             <span class="row-label">Content line height</span>
+                            {@render ResetBtn("content_line_height")}
                             <div class="row-control">
-                                <select
-                                    class="select-input"
+                                <CustomSelect
                                     value={current.content_line_height}
-                                    onchange={(e) =>
+                                    options={LINE_HEIGHT_OPTIONS}
+                                    onchange={(v) =>
                                         set(
                                             "content_line_height",
-                                            e.currentTarget
-                                                .value as Settings["content_line_height"],
+                                            v as Settings["content_line_height"],
                                         )}
-                                >
-                                    <option value="compact">Compact</option>
-                                    <option value="standard">Standard</option>
-                                    <option value="comfortable"
-                                        >Comfortable</option
-                                    >
-                                </select>
-                                {@render ResetBtn("content_line_height")}
+                                />
                             </div>
                         </div>
                         <div class="row">
                             <span class="row-label">Inline title</span>
+                            {@render ResetBtn("inline_title")}
                             <div class="row-control">
                                 {@render Toggle(
                                     "inline_title",
                                     current.inline_title,
                                 )}
-                                {@render ResetBtn("inline_title")}
                             </div>
                         </div>
                     {:else if activeTab === "editor"}
@@ -333,23 +492,23 @@
                             <span class="row-label"
                                 >Show [[ ]] around wikilinks</span
                             >
+                            {@render ResetBtn("wikilink_brackets")}
                             <div class="row-control">
                                 {@render Toggle(
                                     "wikilink_brackets",
                                     current.wikilink_brackets,
                                 )}
-                                {@render ResetBtn("wikilink_brackets")}
                             </div>
                         </div>
                         <div class="row">
                             <span class="row-label">Download remote images</span
                             >
+                            {@render ResetBtn("download_remote_images")}
                             <div class="row-control">
                                 {@render Toggle(
                                     "download_remote_images",
                                     current.download_remote_images,
                                 )}
-                                {@render ResetBtn("download_remote_images")}
                             </div>
                         </div>
 
@@ -359,40 +518,30 @@
 
                         <div class="row">
                             <span class="row-label">Date format</span>
+                            {@render ResetBtn("date_format")}
                             <div class="row-control">
-                                <input
-                                    class="text-input"
+                                <CustomSelect
                                     value={current.date_format}
-                                    oninput={(e) =>
-                                        set(
-                                            "date_format",
-                                            e.currentTarget.value,
-                                        )}
+                                    options={DATE_FORMATS}
+                                    onchange={(v) => set("date_format", v)}
+                                    minWidth={160}
                                 />
-                                {@render ResetBtn("date_format")}
                             </div>
                         </div>
                         <div class="row">
                             <span class="row-label">Epoch precision</span>
+                            {@render ResetBtn("epoch_precision")}
                             <div class="row-control">
-                                <select
-                                    class="select-input"
+                                <CustomSelect
                                     value={current.epoch_precision}
-                                    onchange={(e) =>
+                                    options={EPOCH_OPTIONS}
+                                    onchange={(v) =>
                                         set(
                                             "epoch_precision",
-                                            e.currentTarget
-                                                .value as Settings["epoch_precision"],
+                                            v as Settings["epoch_precision"],
                                         )}
-                                >
-                                    <option value="seconds"
-                                        >Seconds (10 digits)</option
-                                    >
-                                    <option value="milliseconds"
-                                        >Milliseconds (13 digits)</option
-                                    >
-                                </select>
-                                {@render ResetBtn("epoch_precision")}
+                                    minWidth={190}
+                                />
                             </div>
                         </div>
 
@@ -402,34 +551,61 @@
 
                         <div class="row">
                             <span class="row-label">Enable spellcheck</span>
+                            {@render ResetBtn("spellcheck")}
                             <div class="row-control">
                                 {@render Toggle(
                                     "spellcheck",
                                     current.spellcheck,
                                 )}
-                                {@render ResetBtn("spellcheck")}
                             </div>
                         </div>
-                        <div class="row">
-                            <span class="row-label"
-                                >Languages (comma-separated)</span
-                            >
-                            <div class="row-control">
-                                <input
-                                    class="text-input"
-                                    value={current.spellcheck_languages.join(
-                                        ", ",
-                                    )}
-                                    oninput={(e) =>
-                                        set(
-                                            "spellcheck_languages",
-                                            e.currentTarget.value
-                                                .split(",")
-                                                .map((s) => s.trim())
-                                                .filter(Boolean),
-                                        )}
-                                />
-                                {@render ResetBtn("spellcheck_languages")}
+                        <div class="row lang-row">
+                            <span class="row-label">Languages</span>
+                            {@render ResetBtn("spellcheck_languages")}
+                            <div class="row-control lang-control">
+                                {#each current.spellcheck_languages as code}
+                                    <span class="lang-chip">
+                                        {LANGUAGES.find((l) => l.code === code)
+                                            ?.label ?? code}
+                                        <button
+                                            class="lang-chip-remove"
+                                            type="button"
+                                            aria-label="Remove"
+                                            onclick={() => toggleLang(code)}
+                                            >×</button
+                                        >
+                                    </span>
+                                {/each}
+                                {#if availableLangs.length > 0}
+                                    <div class="lang-picker" bind:this={langEl}>
+                                        <button
+                                            class="lang-add-btn"
+                                            type="button"
+                                            aria-label="Add language"
+                                            bind:this={langTriggerEl}
+                                            onclick={openLang}>+</button
+                                        >
+                                        {#if langOpen}
+                                            <div
+                                                class="lang-list"
+                                                bind:this={langListEl}
+                                                style:top="{langPos.top}px"
+                                                style:right="{langPos.right}px"
+                                            >
+                                                {#each availableLangs as { code, label }}
+                                                    <button
+                                                        class="lang-option"
+                                                        type="button"
+                                                        onclick={() => {
+                                                            toggleLang(code);
+                                                            langOpen = false;
+                                                        }}>{label}</button
+                                                    >
+                                                {/each}
+                                            </div>
+                                        {/if}
+                                    </div>
+                                {/if}
                             </div>
                         </div>
                     {:else if activeTab === "behavior"}
@@ -437,41 +613,41 @@
 
                         <div class="row">
                             <span class="row-label">Close to tray</span>
+                            {@render ResetBtn("close_to_tray")}
                             <div class="row-control">
                                 {@render Toggle(
                                     "close_to_tray",
                                     current.close_to_tray,
                                 )}
-                                {@render ResetBtn("close_to_tray")}
                             </div>
                         </div>
                         <div class="row">
                             <span class="row-label">Autostart on login</span>
+                            {@render ResetBtn("autostart")}
                             <div class="row-control">
                                 {@render Toggle("autostart", current.autostart)}
-                                {@render ResetBtn("autostart")}
                             </div>
                         </div>
                         <div class="row">
                             <span class="row-label">Native app bar</span>
+                            {@render ResetBtn("native_app_bar")}
                             <div class="row-control">
                                 {@render Toggle(
                                     "native_app_bar",
                                     current.native_app_bar,
                                 )}
-                                {@render ResetBtn("native_app_bar")}
                             </div>
                         </div>
                         <div class="row">
                             <span class="row-label"
                                 >Allow multiple instances</span
                             >
+                            {@render ResetBtn("multiple_instances")}
                             <div class="row-control">
                                 {@render Toggle(
                                     "multiple_instances",
                                     current.multiple_instances,
                                 )}
-                                {@render ResetBtn("multiple_instances")}
                             </div>
                         </div>
 
@@ -483,42 +659,37 @@
                             <span class="row-label"
                                 >Move deleted notes to trash</span
                             >
+                            {@render ResetBtn("soft_delete")}
                             <div class="row-control">
                                 {@render Toggle(
                                     "soft_delete",
                                     current.soft_delete,
                                 )}
-                                {@render ResetBtn("soft_delete")}
                             </div>
                         </div>
                         <div class="row">
                             <span class="row-label">Auto backup</span>
+                            {@render ResetBtn("auto_backup")}
                             <div class="row-control">
                                 {@render Toggle(
                                     "auto_backup",
                                     current.auto_backup,
                                 )}
-                                {@render ResetBtn("auto_backup")}
                             </div>
                         </div>
                         <div class="row">
                             <span class="row-label">Backup frequency</span>
+                            {@render ResetBtn("backup_frequency")}
                             <div class="row-control">
-                                <select
-                                    class="select-input"
+                                <CustomSelect
                                     value={current.backup_frequency}
-                                    onchange={(e) =>
+                                    options={BACKUP_OPTIONS}
+                                    onchange={(v) =>
                                         set(
                                             "backup_frequency",
-                                            e.currentTarget
-                                                .value as Settings["backup_frequency"],
+                                            v as Settings["backup_frequency"],
                                         )}
-                                >
-                                    <option value="daily">Daily</option>
-                                    <option value="weekly">Weekly</option>
-                                    <option value="monthly">Monthly</option>
-                                </select>
-                                {@render ResetBtn("backup_frequency")}
+                                />
                             </div>
                         </div>
                     {:else if activeTab === "advanced"}
@@ -527,22 +698,14 @@
                         {#each [["zen_app_bar", "App bar"], ["zen_sidebar", "Sidebar"], ["zen_right_panel", "Right panel"], ["zen_status_bar", "Status bar"]] as [keyof Settings, string][] as [key, label]}
                             <div class="row">
                                 <span class="row-label">{label}</span>
+                                {@render ResetBtn(key)}
                                 <div class="row-control">
-                                    <select
-                                        class="select-input"
+                                    <CustomSelect
                                         value={current[key] as string}
-                                        onchange={(e) =>
-                                            set(
-                                                key,
-                                                e.currentTarget
-                                                    .value as Settings[typeof key],
-                                            )}
-                                    >
-                                        <option value="show">Show</option>
-                                        <option value="peek">Peek</option>
-                                        <option value="hide">Hide</option>
-                                    </select>
-                                    {@render ResetBtn(key)}
+                                        options={ZEN_OPTIONS}
+                                        onchange={(v) =>
+                                            set(key, v as Settings[typeof key])}
+                                    />
                                 </div>
                             </div>
                         {/each}
@@ -555,12 +718,12 @@
                             <span class="row-label"
                                 >I know how to exit Vim mode</span
                             >
+                            {@render ResetBtn("vim_escaper")}
                             <div class="row-control">
                                 {@render Toggle(
                                     "vim_escaper",
                                     current.vim_escaper,
                                 )}
-                                {@render ResetBtn("vim_escaper")}
                             </div>
                         </div>
                     {/if}
@@ -571,6 +734,85 @@
 {/if}
 
 <!-- ── Snippets ───────────────────────────────────────────────────────────── -->
+
+{#snippet FontSelect(key: keyof Settings, fallback: string)}
+    {@const name = getFontName(current[key] as string)}
+    {@const fontOptions = [
+        { value: "", label: `Default (${fallback})` },
+        ...(name && name !== fallback && !systemFonts.includes(name)
+            ? [{ value: name, label: name }]
+            : []),
+        ...systemFonts.map((f) => ({ value: f, label: f })),
+    ]}
+    <CustomSelect
+        value={name === fallback ? "" : name}
+        options={fontOptions}
+        onchange={(v) =>
+            set(
+                key,
+                (v ? buildFont(v, fallback) : fallback) as Settings[typeof key],
+            )}
+        minWidth={200}
+    />
+{/snippet}
+
+{#snippet Stepper(
+    key: keyof Settings,
+    val: number,
+    min: number,
+    max: number,
+    step: number,
+)}
+    <div class="stepper">
+        <button
+            class="stepper-btn"
+            tabindex="-1"
+            aria-label="Decrease"
+            onclick={() => stepNum(key, val, -1, step, min, max)}>−</button
+        >
+        {#if editingNumber === key}
+            <input
+                class="stepper-input"
+                type="number"
+                value={val}
+                {min}
+                {max}
+                {step}
+                onblur={(e) =>
+                    commitNumber(key, e.currentTarget.value, step, min, max)}
+                onkeydown={(e) => {
+                    if (e.key === "Enter") {
+                        commitNumber(
+                            key,
+                            (e.currentTarget as HTMLInputElement).value,
+                            step,
+                            min,
+                            max,
+                        );
+                        e.stopPropagation();
+                    } else if (e.key === "Escape") {
+                        editingNumber = null;
+                        e.stopPropagation();
+                    }
+                }}
+            />
+        {:else}
+            <button
+                class="stepper-value"
+                tabindex="-1"
+                title="Click to edit"
+                onclick={() => (editingNumber = key)}
+                >{fmtNum(val, step)}</button
+            >
+        {/if}
+        <button
+            class="stepper-btn"
+            tabindex="-1"
+            aria-label="Increase"
+            onclick={() => stepNum(key, val, 1, step, min, max)}>+</button
+        >
+    </div>
+{/snippet}
 
 {#snippet ResetBtn(key: keyof Settings)}
     <Tooltip description="Reset to default">
@@ -762,9 +1004,10 @@
         min-width: 0;
         overflow-y: auto;
         overscroll-behavior: contain;
-        padding: 1rem 1.25rem;
+        padding: 1rem 1.5rem 1rem 2rem;
         scrollbar-width: thin;
         scrollbar-color: var(--bg-border) transparent;
+        scrollbar-gutter: stable;
     }
 
     .section-title {
@@ -807,58 +1050,199 @@
         flex-shrink: 0;
     }
 
-    /* ── Controls ── */
+    /* ── Language row ── */
 
-    .text-input {
-        width: 200px;
-        height: 26px;
-        padding: 0 0.5rem;
-        background: var(--bg-hover);
+    .row.lang-row {
+        align-items: flex-start;
+        padding-top: 0.45rem;
+        padding-bottom: 0.45rem;
+    }
+
+    .row.lang-row .row-label {
+        padding-top: 0.15rem;
+    }
+
+    .lang-control {
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 0.3rem;
+        max-width: 320px;
+    }
+
+    /* ── Language chips ── */
+
+    .lang-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.15rem;
+        height: 22px;
+        padding: 0 0.25rem 0 0.55rem;
+        background: var(--bg-active);
         border: 1px solid var(--bg-border);
-        border-radius: 4px;
-        color: var(--fg-primary);
-        font-size: 0.8rem;
-        outline: none;
-        transition: border-color 0.1s;
+        border-radius: 100px;
+        font-size: 0.75rem;
+        color: var(--fg-muted);
+        white-space: nowrap;
     }
 
-    .text-input:focus {
-        border-color: var(--fg-interactive);
-    }
-
-    .number-input {
-        width: 72px;
-        height: 26px;
-        padding: 0 0.4rem;
-        background: var(--bg-hover);
-        border: 1px solid var(--bg-border);
-        border-radius: 4px;
-        color: var(--fg-primary);
-        font-size: 0.8rem;
-        outline: none;
-        text-align: right;
-        transition: border-color 0.1s;
-    }
-
-    .number-input:focus {
-        border-color: var(--fg-interactive);
-    }
-
-    .select-input {
-        height: 26px;
-        padding: 0 0.4rem;
-        background: var(--bg-hover);
-        border: 1px solid var(--bg-border);
-        border-radius: 4px;
-        color: var(--fg-primary);
-        font-size: 0.8rem;
-        outline: none;
+    .lang-chip-remove {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 16px;
+        height: 16px;
+        background: none;
+        border: none;
+        border-radius: 50%;
+        color: var(--cursor);
         cursor: pointer;
-        min-width: 130px;
+        font-size: 0.85rem;
+        line-height: 1;
+        padding: 0;
+        transition:
+            background 0.1s,
+            color 0.1s;
     }
 
-    .select-input:focus {
+    .lang-chip-remove:hover {
+        background: color-mix(in srgb, var(--fg-warning) 15%, transparent);
+        color: var(--fg-warning);
+    }
+
+    /* ── Language add button & picker ── */
+
+    .lang-picker {
+        position: relative;
+        display: inline-flex;
+    }
+
+    .lang-add-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 22px;
+        height: 22px;
+        background: none;
+        border: 1px dashed var(--bg-border);
+        border-radius: 100px;
+        color: var(--cursor);
+        cursor: pointer;
+        font-size: 1rem;
+        line-height: 1;
+        padding: 0;
+        transition:
+            border-color 0.1s,
+            color 0.1s,
+            background 0.1s;
+    }
+
+    .lang-add-btn:hover {
         border-color: var(--fg-interactive);
+        color: var(--fg-interactive);
+        background: color-mix(in srgb, var(--fg-interactive) 8%, transparent);
+    }
+
+    .lang-list {
+        position: fixed;
+        z-index: 300;
+        background: var(--bg-panel);
+        border: 1px solid var(--bg-border);
+        border-radius: 4px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+        min-width: 160px;
+        max-height: 200px;
+        overflow-y: auto;
+        padding: 0.25rem 0;
+        scrollbar-width: thin;
+        scrollbar-color: var(--bg-border) transparent;
+    }
+
+    .lang-option {
+        display: block;
+        width: 100%;
+        padding: 0.3rem 0.75rem;
+        background: none;
+        border: none;
+        color: var(--fg-muted);
+        font-size: 0.8rem;
+        text-align: left;
+        cursor: pointer;
+        white-space: nowrap;
+        transition:
+            background 0.1s,
+            color 0.1s;
+    }
+
+    .lang-option:hover {
+        background: var(--bg-hover);
+        color: var(--fg-primary);
+    }
+
+    /* ── Number stepper ── */
+
+    .stepper {
+        display: flex;
+        align-items: stretch;
+        height: 26px;
+        background: var(--bg-hover);
+        border: 1px solid var(--bg-border);
+        border-radius: 4px;
+        overflow: hidden;
+    }
+
+    .stepper-btn {
+        width: 24px;
+        flex-shrink: 0;
+        background: none;
+        border: none;
+        color: var(--fg-muted);
+        cursor: pointer;
+        font-size: 1rem;
+        line-height: 1;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition:
+            background 0.1s,
+            color 0.1s;
+    }
+
+    .stepper-btn:hover {
+        background: var(--bg-active);
+        color: var(--fg-primary);
+    }
+
+    .stepper-value {
+        min-width: 44px;
+        background: none;
+        border: none;
+        border-left: 1px solid var(--bg-border);
+        border-right: 1px solid var(--bg-border);
+        color: var(--fg-primary);
+        font-size: 0.8rem;
+        text-align: center;
+        cursor: text;
+        padding: 0 0.35rem;
+        transition: background 0.1s;
+    }
+
+    .stepper-value:hover {
+        background: var(--bg-active);
+    }
+
+    .stepper-input {
+        min-width: 44px;
+        width: 56px;
+        background: var(--bg-hover);
+        border: none;
+        border-left: 1px solid var(--fg-interactive);
+        border-right: 1px solid var(--fg-interactive);
+        color: var(--fg-primary);
+        font-size: 0.8rem;
+        text-align: center;
+        outline: none;
+        padding: 0 0.35rem;
     }
 
     /* ── Toggle ── */

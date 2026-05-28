@@ -34,6 +34,21 @@ pub fn save_settings(
 }
 
 #[tauri::command]
+pub fn list_system_fonts() -> Vec<String> {
+    let mut db = fontdb::Database::new();
+    db.load_system_fonts();
+    let mut families: std::collections::HashSet<String> = std::collections::HashSet::new();
+    for face in db.faces() {
+        if let Some((name, _)) = face.families.first() {
+            families.insert(name.clone());
+        }
+    }
+    let mut result: Vec<String> = families.into_iter().collect();
+    result.sort();
+    result
+}
+
+#[tauri::command]
 pub fn open_settings_file(
     scope: String,
     state: State<'_, AppState>,
