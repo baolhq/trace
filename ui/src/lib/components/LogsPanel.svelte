@@ -1,18 +1,15 @@
 <script lang="ts">
     import Panel from "./Panel.svelte";
-    import StarIcon from "@iconify-svelte/carbon/star";
-    import StarFilledIcon from "@iconify-svelte/carbon/star-filled";
     import CloseIcon from "@iconify-svelte/carbon/close";
-    import DocumentIcon from "@iconify-svelte/carbon/document";
-    import TrashIcon from "@iconify-svelte/carbon/trash-can";
     import EditIcon from "@iconify-svelte/carbon/edit";
-    import SubtractIcon from "@iconify-svelte/carbon/subtract-alt";
+    import TrashIcon from "@iconify-svelte/carbon/trash-can";
     import { invoke } from "@tauri-apps/api/core";
     import { focusOnMount } from "$lib/actions";
     import { notes } from "$lib/stores/notes.svelte";
     import { logs, buildTree, flattenTree } from "$lib/stores/logs.svelte";
     import { keybindings } from "$lib/keybindings";
     import { contextMenu } from "$lib/stores/contextMenu.svelte";
+    import NodeListItem from "./NodeListItem.svelte";
 
     const logTree = $derived(buildTree(logs.allLogs, null));
     const flatItems = $derived(
@@ -105,11 +102,7 @@
     }
 </script>
 
-{#snippet iconOpen()}<DocumentIcon height="1em" />{/snippet}
-{#snippet iconFav()}<StarIcon height="1em" />{/snippet}
-{#snippet iconUnfav()}<StarFilledIcon height="1em" />{/snippet}
 {#snippet iconEdit()}<EditIcon height="1em" />{/snippet}
-{#snippet iconRemove()}<SubtractIcon height="1em" />{/snippet}
 {#snippet iconDelete()}<TrashIcon height="1em" />{/snippet}
 
 <Panel title="Logs">
@@ -192,88 +185,20 @@
                 >
             </div>
         {:else}
-            <div
-                class="log-member-item"
-                class:active={notes.activeNodeId === item.node.id}
-                class:drag-over={logs.dragOverLogId === item.logId}
-                role="option"
-                aria-selected={notes.activeNodeId === item.node.id}
-                tabindex="-1"
-                data-log-id={item.logId}
-                style="padding-left: {0.75 + item.depth * 0.85}rem"
-                oncontextmenu={(e) => {
-                    e.preventDefault();
-                    contextMenu.open(e.clientX, e.clientY, [
-                        {
-                            kind: "action",
-                            label: "Open",
-                            icon: iconOpen,
-                            action: () => notes.openNode(item.node.id),
-                        },
-                        { kind: "separator" },
-                        {
-                            kind: "action",
-                            label: item.node.is_favorite
-                                ? "Unfavorite"
-                                : "Favorite",
-                            icon: item.node.is_favorite ? iconUnfav : iconFav,
-                            action: () => notes.toggleFavorite(item.node.id),
-                        },
-                        { kind: "separator" },
-                        {
-                            kind: "action",
-                            label: "Remove from log",
-                            icon: iconRemove,
-                            action: () =>
-                                removeFromLog(
-                                    item.logId,
-                                    item.node.id,
-                                    new MouseEvent("click"),
-                                ),
-                        },
-                        {
-                            kind: "action",
-                            label: "Delete",
-                            icon: iconDelete,
-                            danger: true,
-                            action: () =>
-                                notes.deleteNode(
-                                    item.node.id,
-                                    new MouseEvent("click"),
-                                ),
-                        },
-                    ]);
-                }}
-            >
-                <button
-                    class="node-btn"
-                    onpointerdown={(e) =>
-                        logs.onNodePointerDown(item.node.id, e)}
-                    onpointermove={(e) => logs.onNodePointerMove(e)}
-                    onpointerup={() => logs.onNodePointerUp(item.node.id)}
-                    onpointercancel={() => logs.onNodePointerCancel()}
-                >
-                    <span class="node-title">{item.node.title}</span>
-                </button>
-                <button
-                    class="action-btn fav-btn"
-                    class:fav-on={item.node.is_favorite}
-                    onclick={(e) => notes.toggleFavorite(item.node.id, e)}
-                    title={item.node.is_favorite ? "Unfavorite" : "Favorite"}
-                    tabindex="-1"
-                >
-                    {#if item.node.is_favorite}
-                        <StarFilledIcon height="1em" />
-                    {:else}<StarIcon height="1em" />
-                    {/if}
-                </button>
-                <button
-                    class="action-btn remove-btn"
-                    onclick={(e) => removeFromLog(item.logId, item.node.id, e)}
-                    title="Remove from log"
-                    tabindex="-1"><CloseIcon height="1em" /></button
-                >
-            </div>
+            <NodeListItem
+                node={item.node}
+                isActive={notes.activeNodeId === item.node.id}
+                isDragOver={logs.dragOverLogId === item.logId}
+                logId={item.logId}
+                paddingLeft="{0.75 + item.depth * 0.85}rem"
+                showBorderLeft
+                favPersistent
+                onToggleFavorite={(e) => notes.toggleFavorite(item.node.id, e)}
+                onRemoveFromLog={(e) =>
+                    removeFromLog(item.logId, item.node.id, e)}
+                onDelete={() =>
+                    notes.deleteNode(item.node.id, new MouseEvent("click"))}
+            />
         {/if}
     {/each}
 
@@ -335,6 +260,10 @@
         outline-offset: -1px;
     }
 
+    .log-item:hover .action-btn {
+        opacity: 1;
+    }
+
     .log-btn {
         flex: 1;
         background: none;
@@ -362,10 +291,6 @@
         text-overflow: ellipsis;
         white-space: nowrap;
         color: var(--cursor);
-    }
-
-    .log-action {
-        opacity: 0;
     }
 
     .log-rename-input {
@@ -403,91 +328,5 @@
 
     .log-create-input::placeholder {
         color: var(--cursor);
-    }
-
-    .log-member-item {
-        display: flex;
-        align-items: center;
-        gap: 0.15rem;
-        padding-right: 0.4rem;
-        cursor: default;
-        border-left: 2px solid var(--bg-border);
-    }
-
-    .log-member-item:hover {
-        background: var(--bg-hover);
-    }
-
-    .log-member-item.drag-over {
-        background: var(--bg-active);
-        outline: 1px dashed var(--fg-interactive);
-        outline-offset: -1px;
-    }
-
-    .log-member-item.active {
-        background: var(--bg-active);
-    }
-
-    .log-member-item.active .node-btn {
-        color: var(--fg-interactive);
-    }
-
-    .node-btn {
-        flex: 1;
-        background: none;
-        border: none;
-        text-align: left;
-        cursor: pointer;
-        padding: 0.4rem 0.3rem 0.4rem 0.75rem;
-        overflow: hidden;
-        min-width: 0;
-        height: 34px;
-        display: flex;
-        align-items: center;
-        user-select: none;
-        touch-action: none;
-    }
-
-    .node-title {
-        display: block;
-        font-size: 0.875rem;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        color: var(--cursor);
-    }
-
-    .action-btn {
-        flex-shrink: 0;
-        opacity: 0;
-        background: none;
-        border: none;
-        font-size: 0.85rem;
-        line-height: 1;
-        cursor: pointer;
-        padding: 0 0.15rem;
-        transition: opacity 0.1s;
-        color: var(--cursor);
-    }
-
-    .log-item:hover .action-btn,
-    .log-member-item:hover .action-btn {
-        opacity: 1;
-    }
-
-    .fav-btn.fav-on {
-        opacity: 1;
-    }
-
-    .fav-btn:hover {
-        color: var(--fg-muted);
-    }
-
-    .delete-btn:hover {
-        color: var(--fg-error);
-    }
-
-    .remove-btn:hover {
-        color: var(--fg-error);
     }
 </style>

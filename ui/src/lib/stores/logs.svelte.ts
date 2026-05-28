@@ -52,20 +52,20 @@ class LogsStore {
   #ptrDragging = false;
   #ptrCaptureEl: HTMLElement | null = null;
 
-  filterAllMembers(pred: (n: NodeInfo) => boolean) {
+  #updateAllMembers(fn: (members: NodeInfo[]) => NodeInfo[]) {
     const updated: Record<number, NodeInfo[]> = {};
     for (const [key, members] of Object.entries(this.logMembersMap)) {
-      updated[Number(key)] = members.filter(pred);
+      updated[Number(key)] = fn(members);
     }
     this.logMembersMap = updated;
   }
 
+  filterAllMembers(pred: (n: NodeInfo) => boolean) {
+    this.#updateAllMembers((members) => members.filter(pred));
+  }
+
   patchAllMembers(fn: (n: NodeInfo) => NodeInfo) {
-    const updated: Record<number, NodeInfo[]> = {};
-    for (const [key, members] of Object.entries(this.logMembersMap)) {
-      updated[Number(key)] = members.map(fn);
-    }
-    this.logMembersMap = updated;
+    this.#updateAllMembers((members) => members.map(fn));
   }
 
   async loadLogs() {

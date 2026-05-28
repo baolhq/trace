@@ -1,0 +1,21 @@
+.action-btn {
+    flex-shrink: 0;
+    opacity: 0;
+    background: none;
+    border: none;
+    font-size: 0.85rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 0.15rem;
+    transition: opacity 0.1s;
+    color: var(--cursor);
+}
+
+.fav-btn:hover {
+    color: var(--fg-muted);
+}
+
+.delete-btn:hover,
+.remove-btn:hover {
+    color: var(--fg-error);
+}

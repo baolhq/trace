@@ -1,4 +1,7 @@
 <script lang="ts">
+    import { clickOutside } from "$lib/actions";
+    import { positionDropdown } from "$lib/utils/dropdown";
+
     let {
         value,
         options,
@@ -17,7 +20,6 @@
 
     let open = $state(false);
     let triggerEl: HTMLButtonElement | null = $state(null);
-    let listEl: HTMLElement | null = $state(null);
     let pos = $state({ top: 0, right: 0, minWidth: 0 });
 
     function toggle() {
@@ -26,18 +28,10 @@
             return;
         }
         if (triggerEl) {
-            const rect = triggerEl.getBoundingClientRect();
-            const listH = Math.min(options.length * 28 + 10, 240);
-            const spaceBelow = window.innerHeight - rect.bottom;
-            const top =
-                spaceBelow >= listH + 4
-                    ? rect.bottom + 4
-                    : Math.max(8, rect.top - listH - 4);
-            pos = {
-                top,
-                right: window.innerWidth - rect.right,
-                minWidth: rect.width,
-            };
+            pos = positionDropdown(
+                triggerEl,
+                Math.min(options.length * 28 + 10, 240),
+            );
         }
         open = true;
     }
@@ -46,35 +40,6 @@
         onchange(v);
         open = false;
     }
-
-    $effect(() => {
-        if (!open) return;
-        function onClickOutside(e: MouseEvent) {
-            const t = e.target as Node;
-            if (!triggerEl?.contains(t) && !listEl?.contains(t)) open = false;
-        }
-        function onScroll(e: Event) {
-            if (listEl?.contains(e.target as Node)) return;
-            open = false;
-        }
-        function onKeydown(e: KeyboardEvent) {
-            if (e.key === "Escape") {
-                open = false;
-                triggerEl?.focus();
-                e.stopPropagation();
-            }
-        }
-        document.addEventListener("click", onClickOutside);
-        document.addEventListener("scroll", onScroll, { capture: true });
-        document.addEventListener("keydown", onKeydown, { capture: true });
-        return () => {
-            document.removeEventListener("click", onClickOutside);
-            document.removeEventListener("scroll", onScroll, { capture: true });
-            document.removeEventListener("keydown", onKeydown, {
-                capture: true,
-            });
-        };
-    });
 </script>
 
 <div class="cs">
@@ -106,7 +71,13 @@
     {#if open}
         <div
             class="cs-list"
-            bind:this={listEl}
+            use:clickOutside={{
+                onClose: () => (open = false),
+                exclude: [triggerEl],
+                closeOnEscape: true,
+                returnFocusTo: triggerEl,
+                closeOnScroll: true,
+            }}
             style:top="{pos.top}px"
             style:right="{pos.right}px"
             style:min-width="{pos.minWidth}px"

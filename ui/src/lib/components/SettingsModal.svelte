@@ -5,6 +5,8 @@
     import type { Settings, SettingsScope } from "$lib/types";
     import Tooltip from "$lib/components/Tooltip.svelte";
     import CustomSelect from "$lib/components/CustomSelect.svelte";
+    import { clickOutside } from "$lib/actions";
+    import { positionDropdown } from "$lib/utils/dropdown";
 
     let {
         open = $bindable(false),
@@ -41,16 +43,9 @@
     }
 
     function handleKeydown(e: KeyboardEvent) {
-        if (!open) return;
-        if (e.key === "Escape") {
-            if (langOpen) {
-                langOpen = false;
-                e.stopPropagation();
-                return;
-            }
-            open = false;
-            e.stopPropagation();
-        }
+        if (!open || e.key !== "Escape") return;
+        open = false;
+        e.stopPropagation();
     }
 
     let modalEl: HTMLElement | null = $state(null);
@@ -143,8 +138,6 @@
 
     // ── Number stepper ────────────────────────────────────────────────────────
 
-    let editingNumber: keyof Settings | null = $state(null);
-
     function stepNum(
         key: keyof Settings,
         val: number,
@@ -176,7 +169,6 @@
                 ) as Settings[typeof key],
             );
         }
-        editingNumber = null;
     }
 
     function fmtNum(val: number, step: number): string {
@@ -216,9 +208,7 @@
     let langOpen = $state(false);
     let langEl: HTMLElement | null = $state(null);
     let langTriggerEl: HTMLButtonElement | null = $state(null);
-    let langListEl: HTMLElement | null = $state(null);
     let langPos = $state({ top: 0, right: 0 });
-    let contentEl: HTMLElement | null = $state(null);
 
     function openLang() {
         if (langOpen) {
@@ -226,40 +216,14 @@
             return;
         }
         if (langTriggerEl) {
-            const rect = langTriggerEl.getBoundingClientRect();
-            const dropdownH = Math.min(availableLangs.length * 28 + 10, 216);
-            const spaceBelow = window.innerHeight - rect.bottom;
-            const top =
-                spaceBelow >= dropdownH + 4
-                    ? rect.bottom + 4
-                    : Math.max(8, rect.top - dropdownH - 4);
-            langPos = { top, right: window.innerWidth - rect.right };
+            const p = positionDropdown(
+                langTriggerEl,
+                Math.min(availableLangs.length * 28 + 10, 216),
+            );
+            langPos = { top: p.top, right: p.right };
         }
         langOpen = true;
     }
-
-    $effect(() => {
-        if (!langOpen) return;
-        function onClick(e: MouseEvent) {
-            const t = e.target as Node;
-            const inTrigger = langEl?.contains(t) ?? false;
-            const inList = langListEl?.contains(t) ?? false;
-            if (!inTrigger && !inList) langOpen = false;
-        }
-        document.addEventListener("click", onClick);
-        return () => document.removeEventListener("click", onClick);
-    });
-
-    $effect(() => {
-        if (!langOpen || !contentEl) return;
-        const el = contentEl;
-        function onScroll(e: Event) {
-            if (langListEl?.contains(e.target as Node)) return;
-            langOpen = false;
-        }
-        el.addEventListener("scroll", onScroll);
-        return () => el.removeEventListener("scroll", onScroll);
-    });
 
     $effect(() => {
         void activeTab;
@@ -364,7 +328,7 @@
                     {/each}
                 </nav>
 
-                <div class="content" bind:this={contentEl}>
+                <div class="content">
                     {#if activeTab === "appearance"}
                         <h3 class="section-title">Fonts</h3>
 
@@ -588,7 +552,12 @@
                                         {#if langOpen}
                                             <div
                                                 class="lang-list"
-                                                bind:this={langListEl}
+                                                use:clickOutside={{
+                                                    onClose: () =>
+                                                        (langOpen = false),
+                                                    exclude: [langEl],
+                                                    closeOnScroll: true,
+                                                }}
                                                 style:top="{langPos.top}px"
                                                 style:right="{langPos.right}px"
                                             >
@@ -770,41 +739,25 @@
             aria-label="Decrease"
             onclick={() => stepNum(key, val, -1, step, min, max)}>−</button
         >
-        {#if editingNumber === key}
-            <input
-                class="stepper-input"
-                type="number"
-                value={val}
-                {min}
-                {max}
-                {step}
-                onblur={(e) =>
-                    commitNumber(key, e.currentTarget.value, step, min, max)}
-                onkeydown={(e) => {
-                    if (e.key === "Enter") {
-                        commitNumber(
-                            key,
-                            (e.currentTarget as HTMLInputElement).value,
-                            step,
-                            min,
-                            max,
-                        );
-                        e.stopPropagation();
-                    } else if (e.key === "Escape") {
-                        editingNumber = null;
-                        e.stopPropagation();
-                    }
-                }}
-            />
-        {:else}
-            <button
-                class="stepper-value"
-                tabindex="-1"
-                title="Click to edit"
-                onclick={() => (editingNumber = key)}
-                >{fmtNum(val, step)}</button
-            >
-        {/if}
+        <input
+            class="stepper-input"
+            type="text"
+            inputmode="decimal"
+            value={fmtNum(val, step)}
+            onblur={(e) =>
+                commitNumber(key, e.currentTarget.value, step, min, max)}
+            onkeydown={(e) => {
+                if (e.key === "Enter") {
+                    commitNumber(key, e.currentTarget.value, step, min, max);
+                    e.currentTarget.blur();
+                    e.stopPropagation();
+                } else if (e.key === "Escape") {
+                    e.currentTarget.value = fmtNum(val, step);
+                    e.currentTarget.blur();
+                    e.stopPropagation();
+                }
+            }}
+        />
         <button
             class="stepper-btn"
             tabindex="-1"
@@ -1213,39 +1166,33 @@
         color: var(--fg-primary);
     }
 
-    .stepper-value {
-        min-width: 44px;
-        height: 100%;
+    .stepper-input {
+        width: 44px;
+        height: 26px;
+        box-sizing: border-box;
+        flex-shrink: 0;
         background: none;
         border: none;
         border-left: 1px solid var(--bg-border);
         border-right: 1px solid var(--bg-border);
         color: var(--fg-primary);
         font-size: 0.8rem;
-        cursor: text;
-        padding: 2px 0.35rem 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: background 0.1s;
-    }
-
-    .stepper-value:hover {
-        background: var(--bg-active);
-    }
-
-    .stepper-input {
-        min-width: 44px;
-        width: 56px;
-        background: var(--bg-hover);
-        border: none;
-        border-left: 1px solid var(--fg-interactive);
-        border-right: 1px solid var(--fg-interactive);
-        color: var(--fg-primary);
-        font-size: 0.8rem;
         text-align: center;
         outline: none;
         padding: 0 0.35rem;
+        cursor: text;
+        transition:
+            background 0.1s,
+            border-color 0.1s;
+    }
+
+    .stepper-input:hover {
+        background: var(--bg-active);
+    }
+
+    .stepper-input:focus {
+        background: var(--bg-hover);
+        border-color: var(--fg-interactive);
     }
 
     /* ── Toggle ── */
