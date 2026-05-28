@@ -821,7 +821,6 @@
             class:visible={!isDefault(key)}
             onclick={() => reset(key)}
             tabindex="-1"
-            title="Reset to default"
             aria-label="Reset to default"
         >
             <svg
@@ -1059,7 +1058,7 @@
     }
 
     .row.lang-row .row-label {
-        padding-top: 0.15rem;
+        padding-top: 0.25rem;
     }
 
     .lang-control {
@@ -1075,7 +1074,7 @@
         display: inline-flex;
         align-items: center;
         gap: 0.15rem;
-        height: 22px;
+        height: 28px;
         padding: 0 0.25rem 0 0.55rem;
         background: var(--bg-active);
         border: 1px solid var(--bg-border);
@@ -1192,6 +1191,7 @@
 
     .stepper-btn {
         width: 24px;
+        height: 100%;
         flex-shrink: 0;
         background: none;
         border: none;
@@ -1199,7 +1199,7 @@
         cursor: pointer;
         font-size: 1rem;
         line-height: 1;
-        padding: 0;
+        padding: 2px 0 0;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -1215,15 +1215,18 @@
 
     .stepper-value {
         min-width: 44px;
+        height: 100%;
         background: none;
         border: none;
         border-left: 1px solid var(--bg-border);
         border-right: 1px solid var(--bg-border);
         color: var(--fg-primary);
         font-size: 0.8rem;
-        text-align: center;
         cursor: text;
-        padding: 0 0.35rem;
+        padding: 2px 0.35rem 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         transition: background 0.1s;
     }
 
@@ -1288,9 +1291,9 @@
     /* ── Reset button ── */
 
     .reset-btn {
-        width: 20px;
-        height: 20px;
-        display: flex;
+        width: 28px;
+        height: 28px;
+        display: none;
         align-items: center;
         justify-content: center;
         background: none;
@@ -1298,18 +1301,15 @@
         border-radius: 3px;
         color: var(--cursor);
         cursor: pointer;
-        opacity: 0;
-        pointer-events: none;
         transition:
-            opacity 0.1s,
             color 0.1s,
             background 0.1s;
         flex-shrink: 0;
+        margin-right: 4px;
     }
 
     .reset-btn.visible {
-        opacity: 1;
-        pointer-events: auto;
+        display: flex;
     }
 
     .reset-btn:hover {

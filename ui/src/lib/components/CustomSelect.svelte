@@ -137,6 +137,7 @@
         border-radius: 4px;
         color: var(--fg-primary);
         font-size: 0.8rem;
+        line-height: 1;
         cursor: pointer;
         display: inline-flex;
         align-items: center;
@@ -156,6 +157,7 @@
         text-align: left;
         overflow: hidden;
         text-overflow: ellipsis;
+        padding-top: 2px;
     }
 
     .cs-arrow {
